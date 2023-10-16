@@ -14,6 +14,9 @@ import { server } from '../queue/common'
 import { SorobanRpc } from 'soroban-client'
 import { chunkArray, sortMapKeys } from '../utils'
 
+// TODO Need a cron task to reboot alarms for mint jobs that were currently in process if/when the DO was rebooted
+    // I think a simple ping/healthcheck to the DO id would be sufficient
+
 export class MintFactory {
     id: DurableObjectId
     storage: DurableObjectStorage
@@ -108,8 +111,6 @@ export class MintFactory {
 
                         // TODO there can be failures do to the resourcing in which case we should toss this hash but re-queue the tx
                         // we should be somewhat careful here though as this type of failure likely means funds were spent
-                        // ideally we'd be smarter about submission and not submit txs in parallel that require serial processing
-                        // await this.env.MINT_QUEUE.send(body) // TEMP
 
                         // return the channel
                         await this.returnChannel(body.channel)

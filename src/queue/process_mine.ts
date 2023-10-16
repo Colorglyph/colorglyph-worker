@@ -39,9 +39,7 @@ export async function processMine(message: Message<any>, env: Env) {
         throw new StatusError(400, 'Simulation failed')
 
     const currentLedger = await server.getLatestLedger()
-    const validUntilLedger = currentLedger.sequence + 12
-
-    // TODO handle sim errors
+    const validUntilLedger = currentLedger.sequence + (12 * 60 * 24) // TODO a days worth of ledgers?
 
     // Because we're doing signing here it may make sense to keep this in a queue vs back in the DO
     const authEntry = await authorizeEntry(
@@ -50,8 +48,6 @@ export async function processMine(message: Message<any>, env: Env) {
         validUntilLedger,
         networkPassphrase,
     )
-
-    
 
     const operationAuthorized = Operation.invokeHostFunction({
         func: operation.body().invokeHostFunctionOp().hostFunction(),

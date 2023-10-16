@@ -12,6 +12,7 @@ import { mintQueue } from './fetch/mint_queue';
 import { processQueue } from './queue/process_queue';
 import { MintFactory } from './durable_object/mint_factory';
 import { ChannelAccount } from './durable_object/channel_account';
+import { debug } from './fetch/debug';
 
 const { preflight, corsify } = createCors()
 
@@ -21,6 +22,7 @@ router
 	.all('*', preflight)
 	.get('/mint/:hash', mintQueue)
 	.post('/mint', mintQueue)
+	.get('/debug', debug)
 	.all('*', () => error(404))
 
 const handler = {

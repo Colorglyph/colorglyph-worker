@@ -7,7 +7,7 @@ export async function processTx(message: Message<any>, env: Env) {
     const hash = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1') // Hard coded because we need to resolve to the same DO app wide
     const stub = env.CHANNEL_ACCOUNT.get(hash)
 
-    let secret
+    let secret: string | undefined
 
     try {
         const body: MintJob = message.body
@@ -15,11 +15,17 @@ export async function processTx(message: Message<any>, env: Env) {
         if (!body.tx)
             throw new StatusError(400, 'Missing tx')
 
-        const res = await stub.fetch('http://fake-host/take') // TODO everywhere we're using stub.fetch we don't have the nice error handling that fetcher gives us so we need to roll our own error handling. Keep in mind though there are instances where failure shouldn't kill the whole task. Think returning a channel that's not currently busy for whatever reason
-        
-        secret = await res.text()
+        // TODO everywhere we're using stub.fetch we don't have the nice error handling that fetcher gives us so we need to roll our own error handling. 
+        // Keep in mind though there are instances where failure shouldn't kill the whole task. Think returning a channel that's not currently busy for whatever reason
+        await stub.fetch('http://fake-host/take')
+        .then(async (res) => {
+            if (res.ok)
+                secret = await res.text()
+            else 
+                throw await res.json()
+        })
 
-        const kp = Keypair.fromSecret(secret)
+        const kp = Keypair.fromSecret(secret!)
         const pubkey = kp.publicKey()
 
         const tx = TransactionBuilder.fromXDR(body.tx, networkPassphrase)
@@ -60,9 +66,6 @@ export async function processTx(message: Message<any>, env: Env) {
 
                 // TODO 
                 // there's more work that needs to go into queuing up transactions that have error'ed for recoverable things like sequence number or insufficient fee vs things like the account missing or other unrecoverable issues
-
-                // return the channel account
-                await stub.fetch(`http://fake-host/return/${secret}`)
 
                 throw new StatusError(400, subTx.status)
         }

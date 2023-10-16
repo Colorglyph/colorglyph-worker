@@ -36,6 +36,7 @@ export class ChannelAccount {
         this.router = Router()
 
         this.router
+            .get('/', this.debug.bind(this))
             .get('/take', this.takeChannel.bind(this))
             .get('/return/:secret', this.returnChannel.bind(this))
             .all('*', () => error(404))
@@ -55,6 +56,16 @@ export class ChannelAccount {
             })
     }
 
+    async debug(req: IRequestStrict) {
+        const available = await this.storage.get('available')
+        const busy = await this.storage.get('busy')
+
+        return json({
+            id: this.id.toString(),
+            available,
+            busy
+        })
+    }
     async takeChannel(req: IRequestStrict) {
         if (this.available_channels.length === 0) {
             this.create_channels.push(Keypair.random().secret())

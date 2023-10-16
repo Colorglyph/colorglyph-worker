@@ -41,7 +41,7 @@ export async function processMint(message: Message<any>, env: Env) {
         throw new StatusError(400, 'Simulation failed')
 
     const currentLedger = await server.getLatestLedger()
-    const validUntilLedger = currentLedger.sequence + 12
+    const validUntilLedger = currentLedger.sequence + (12 * 60 * 24) // TODO a days worth of ledgers?
 
     // Because we're doing signing here it may make sense to keep this in a queue vs back in the DO
     const authEntry = await authorizeEntry(
