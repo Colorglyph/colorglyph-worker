@@ -82,7 +82,7 @@ export async function processTx(message: Message<any>, env: Env) {
             console.log(subTx)
             const hash = env.MINT_FACTORY.idFromString(body.id)
             const stub = env.MINT_FACTORY.get(hash)
-            return stub.fetch(`http://fake-host/sent/${subTx.hash}`, { 
+            return stub.fetch(`http://fake-host/${subTx.hash}`, { 
                 method: 'PATCH',
                 body: JSON.stringify(body) // send along the `body` in case we need to re-queue later
             })
