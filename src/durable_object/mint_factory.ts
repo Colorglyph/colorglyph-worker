@@ -81,16 +81,16 @@ export class MintFactory {
                     case 'NOT_FOUND':
                         console.log(retry, res)
 
-                        if (retry < 10) {
+                        if (retry < 12) {
                             this.pending[index].retry++
                         } else {
                             // remove the hash from pending
                             this.pending.splice(index, 1)
 
                             // re-queue the tx
-                            // NOTE there is a wild chance that even after 10 retries the tx might eventually succeed causing a double mine
+                            // NOTE there is a wild chance that even after {x} retries the tx might eventually succeed causing a double mine
                             // We should probably check for the colors we're about to mine before mining them in the `process_mine`
-                            // TODO we can avoid this issue by including some better time limits on transaction submissions to be less than whenever this would fire
+                            // we can avoid this issue by including some better time limits on transaction submissions to be less than whenever this would fire
                             await this.env.MINT_QUEUE.send(body)
 
                             // return the channel
@@ -212,7 +212,7 @@ export class MintFactory {
         await this.storage.put('pending', this.pending)
     }
 
-    async markProgress(body: MintJob, res: SorobanRpc.GetTransactionResponse) {
+    async markProgress(body: MintJob, res: SorobanRpc.GetSuccessfulTransactionResponse) {
         switch (body.type) {
             case 'mine':
                 await this.mineProgress()
@@ -309,9 +309,8 @@ export class MintFactory {
             await this.storage.put('mint_progress', mintTotal)
         }
     }
-    async mintComplete(res: SorobanRpc.GetTransactionResponse) {
-        // @ts-ignore
-        const hash = res.resultMetaXdr.value().sorobanMeta().returnValue().value().toString('hex')
+    async mintComplete(res: SorobanRpc.GetSuccessfulTransactionResponse) {
+        const hash = res.returnValue?.bytes().toString('hex')
 
         await this.storage.put('hash', hash)
         await this.storage.put('status', 'complete')

@@ -23,7 +23,7 @@ queue = "colorglyph-tx-queue"
 queue = "colorglyph-tx-queue"
 max_batch_size = 1
 max_batch_timeout = 10
-max_retries = 100 # 10
+max_retries = 12
 max_concurrency = 1
 
 [[queues.producers]]
@@ -34,7 +34,7 @@ queue = "colorglyph-mint-queue"
 queue = "colorglyph-mint-queue"
 max_batch_size = 1
 max_batch_timeout = 10
-max_retries = 0
+max_retries = 6
 max_concurrency = 1
 
 # Stand up a dlq for retrying failed mint jobs

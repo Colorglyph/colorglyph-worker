@@ -14,6 +14,8 @@ import { networkPassphrase } from '../queue/common'
 
 const horizon = fetcher({ base: 'https://horizon-futurenet.stellar.org' })
 
+// TODO I'm not convinced we can't end up in a place where we have stuck busy channels that will never be returned to the pool
+
 export class ChannelAccount {
     env: Env
     storage: DurableObjectStorage
@@ -83,7 +85,7 @@ export class ChannelAccount {
         const index = this.busy_channels.findIndex((channel) => channel === secret)
 
         if (index === -1)
-            throw new StatusError(400, 'Channel not found')
+            throw new StatusError(400, 'Channel not busy')
 
         this.busy_channels.splice(index, 1)
         await this.storage.put('busy', this.busy_channels)
@@ -193,6 +195,9 @@ export class ChannelAccount {
             tx.append('tx', transaction.toXDR())
 
             await horizon.post('/transactions', tx)
+
+            // TODO if this submission fails we effectively lose the `channels`
+            // we probably need to do a better job of tracking mergeable channels. We should never be losing funded channels
 
             this.merging = false
 

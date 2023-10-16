@@ -1,7 +1,8 @@
-import { xdr, Keypair, TransactionBuilder, TimeoutInfinite, Account, Operation, StrKey } from 'soroban-client'
+import { xdr, Keypair, TransactionBuilder, TimeoutInfinite, Account, Operation, StrKey, SorobanRpc } from 'soroban-client'
 import { server, networkPassphrase, Contract, RawContract } from './common'
 import { authorizeEntry } from 'stellar-base'
 import { sortMapKeys } from '../utils'
+import { StatusError } from 'itty-router'
 
 export async function processMine(message: Message<any>, env: Env) {
     const body: MintJob = message.body
@@ -33,23 +34,27 @@ export async function processMine(message: Message<any>, env: Env) {
     .build()
 
     const simTx = await server.simulateTransaction(tx)
-    // const currentLedger = await server.getLatestLedger()
-    // const validUntilLedger = currentLedger.sequence + 10000
+
+    if (!SorobanRpc.isSimulationSuccess(simTx))
+        throw new StatusError(400, 'Simulation failed')
+
+    const currentLedger = await server.getLatestLedger()
+    const validUntilLedger = currentLedger.sequence + 12
 
     // TODO handle sim errors
 
     // Because we're doing signing here it may make sense to keep this in a queue vs back in the DO
     const authEntry = await authorizeEntry(
-        // @ts-ignore
-        simTx.result.auth[0], // TODO not sure if sniping the first auth as the only auth is the right thing to do here
+        simTx.result!.auth[0], // TODO not sure if sniping the first auth as the only auth is the right thing to do here
         kp,
-        12 * 60 * 24 * 31, // TODO a year's worth of ledgers. Don't love this
+        validUntilLedger,
         networkPassphrase,
     )
 
+    
+
     const operationAuthorized = Operation.invokeHostFunction({
-        // @ts-ignore
-        func: operation.body().value().hostFunction(),
+        func: operation.body().invokeHostFunctionOp().hostFunction(),
         auth: [ 
             // authEntry
             xdr.SorobanAuthorizationEntry.fromXDR(authEntry.toXDR()) // Needed as long as we're mixing XDR from `stellar-base` and `soroban-client`

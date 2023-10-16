@@ -1,6 +1,7 @@
-import { Account, Keypair, Operation, StrKey, TimeoutInfinite, TransactionBuilder, xdr } from 'soroban-client'
+import { Account, Keypair, Operation, SorobanRpc, StrKey, TimeoutInfinite, TransactionBuilder, xdr } from 'soroban-client'
 import { authorizeEntry } from 'stellar-base'
 import { Contract, RawContract, networkPassphrase, server } from './common'
+import { StatusError } from 'itty-router'
 
 export async function processMint(message: Message<any>, env: Env) {
     const body: MintJob = message.body
@@ -35,23 +36,23 @@ export async function processMint(message: Message<any>, env: Env) {
         .build()
 
     const simTx = await server.simulateTransaction(tx)
-    // const currentLedger = await server.getLatestLedger()
-    // const validUntilLedger = currentLedger.sequence + 10000
 
-    // TODO handle sim errors
+    if (!SorobanRpc.isSimulationSuccess(simTx))
+        throw new StatusError(400, 'Simulation failed')
+
+    const currentLedger = await server.getLatestLedger()
+    const validUntilLedger = currentLedger.sequence + 12
 
     // Because we're doing signing here it may make sense to keep this in a queue vs back in the DO
     const authEntry = await authorizeEntry(
-        // @ts-ignore
-        simTx.result.auth[0],
+        simTx.result!.auth[0],
         kp,
-        12 * 60 * 24 * 31,
+        validUntilLedger,
         networkPassphrase,
     )
 
     const operationAuthorized = Operation.invokeHostFunction({
-        // @ts-ignore
-        func: operation.body().value().hostFunction(),
+        func: operation.body().invokeHostFunctionOp().hostFunction(),
         auth: [
             // authEntry
             xdr.SorobanAuthorizationEntry.fromXDR(authEntry.toXDR()) // Needed as long as we're mixing XDR from `stellar-base` and `soroban-client`

@@ -4,20 +4,20 @@ import { StatusError } from 'itty-router'
 import { getRandomNumber } from '../utils'
 
 export async function processTx(message: Message<any>, env: Env) {
+    const hash = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1') // Hard coded because we need to resolve to the same DO app wide
+    const stub = env.CHANNEL_ACCOUNT.get(hash)
+
+    let secret
+
     try {
         const body: MintJob = message.body
 
         if (!body.tx)
             throw new StatusError(400, 'Missing tx')
 
-        const hash = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1') // Hard coded because we need to resolve to the same DO app wide
-        const stub = env.CHANNEL_ACCOUNT.get(hash)
-
-        const res = await stub.fetch('http://fake-host/take') // TODO everywhere we're using stub.fetch we don't have the nice error handling that fetcher gives us so we need to roll our own error handling 
-        const secret = await res.text()
-
-        // TODO it's very probably here we will run into times of channel account famime, and we need a clean way to deal with that, either timing out, just waiting for the dlq and subsequent cron restart, or something
-        // await stub.fetch(`http://fake-host/return/${secret}`) // TEMP so we don't run out of channels. Ultimately this shouldn't be returned until the tx is fully resolved either in success or failure
+        const res = await stub.fetch('http://fake-host/take') // TODO everywhere we're using stub.fetch we don't have the nice error handling that fetcher gives us so we need to roll our own error handling. Keep in mind though there are instances where failure shouldn't kill the whole task. Think returning a channel that's not currently busy for whatever reason
+        
+        secret = await res.text()
 
         const kp = Keypair.fromSecret(secret)
         const pubkey = kp.publicKey()
@@ -29,9 +29,8 @@ export async function processTx(message: Message<any>, env: Env) {
             fee: (getRandomNumber(1_000_000, 10_000_000)).toString(), // TODO we should be smarter about this (using random so at least we have some variance)
             networkPassphrase,
         })
-            // @ts-ignore
-            .addOperation(Operation.invokeHostFunction(tx.operations[0]))
-            .setTimeout(TimeoutInfinite)
+            .addOperation(tx.toEnvelope().v1().tx().operations()[0])
+            .setTimeout(30) // 30 seconds. Just needs to be less than the NOT_FOUND retry limit so we never double send
             .build()
 
         const readyTx = await server.prepareTransaction(preTx)
@@ -69,6 +68,12 @@ export async function processTx(message: Message<any>, env: Env) {
         }
     } catch(err) {
         // Wait 5 seconds before retrying
+        console.error(err)
+
+        // return the channel account
+        if (secret)
+            await stub.fetch(`http://fake-host/return/${secret}`)
+
         await new Promise((resolve) => setTimeout(resolve, 5000))
         message.retry()
     }
