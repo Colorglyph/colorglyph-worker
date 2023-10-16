@@ -38,12 +38,14 @@ export async function processMint(message: Message<any>, env: Env) {
     // const currentLedger = await server.getLatestLedger()
     // const validUntilLedger = currentLedger.sequence + 10000
 
+    // TODO handle sim errors
+
     // Because we're doing signing here it may make sense to keep this in a queue vs back in the DO
     const authEntry = await authorizeEntry(
         // @ts-ignore
-        simTx.result.auth[0], // TODO not sure if sniping the first auth as the only auth is the right thing to do here
+        simTx.result.auth[0],
         kp,
-        12 * 60 * 24 * 31, // TODO a year's worth of ledgers. Don't love this
+        12 * 60 * 24 * 31,
         networkPassphrase,
     )
 
@@ -65,7 +67,7 @@ export async function processMint(message: Message<any>, env: Env) {
 
     // Send this to the transaction submission queue
     await env.TX_QUEUE.send({
-        ...body, // TODO in general I don't think we need to pass around much more than the DO id to queue tasks since we can look up the data from the DO itself when processing the task (other than the chunked palette I guess, which is important in case of re-qeueus)
-        tx: txAuthorized.toXDR(), // TODO even this bit might be better generated in the tx queue task. Maybe not though as we need to know what chunk to submit in the tx vs actually generating the next chunk as we don't really need to mine or mint progressively we just need to mine before we mint and fully mint before we finally mint. We also need to sign which is memory intensive so getting this out on its own is probably wise
+        ...body,
+        tx: txAuthorized.toXDR(),
     })
 }

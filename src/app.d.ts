@@ -15,6 +15,7 @@ interface MintJob {
     id: string
     type: 'mine'|'mint'
     secret: string
+    channel?: string
     palette: number[]|[number, number[]][]
     width?: number
     tx?: string
