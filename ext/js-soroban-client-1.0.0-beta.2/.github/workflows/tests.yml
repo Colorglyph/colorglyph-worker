@@ -1,0 +1,47 @@
+name: Tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        node-version: [16, 18, 20]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      # Workaround for some `yarn` nonsense, see:
+      # https://github.com/yarnpkg/yarn/issues/6312#issuecomment-429685210
+      - name: Install Dependencies
+        run: |
+          yarn cache clean
+          yarn install --network-concurrency 1
+
+      - name: Build
+        run: yarn build:prod
+
+      - name: Unit Tests
+        run: yarn test:node
+
+      - name: Integration Tests
+        run: yarn test:integration
+
+      - name: Browser Tests
+        run: yarn test:browser
+
+      - name: Run Prettier Checks
+        run: yarn fmt && (git diff-index --quiet HEAD; git diff)

@@ -1,0 +1,25 @@
+{
+  "name": "colorglyph-worker",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --port 8787",
+    "start": "wrangler dev --port 8787"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20231010.0",
+    "@stellar/tsconfig": "^1.0.2",
+    "@types/node": "^20.8.5",
+    "typescript": "^5.2.2",
+    "wrangler": "^3.13.1"
+  },
+  "dependencies": {
+    "buffer": "^6.0.3",
+    "itty-fetcher": "^0.9.3",
+    "itty-router": "^4.0.23",
+    "stellar-base": "github:stellar/js-stellar-base",
+    "soroban-client": "file:./ext/js-soroban-client-1.0.0-beta.2",
+    "colorglyph-sdk": "file:./ext/colorglyph-sdk"
+  }
+}
