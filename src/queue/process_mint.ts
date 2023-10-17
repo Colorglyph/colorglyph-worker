@@ -2,6 +2,7 @@ import { Account, Keypair, Operation, SorobanRpc, StrKey, TimeoutInfinite, Trans
 import { authorizeEntry } from 'stellar-base'
 import { Contract, RawContract, networkPassphrase, server } from './common'
 import { StatusError } from 'itty-router'
+import { sortMapKeys } from '../utils'
 
 export async function processMint(message: Message<any>, env: Env) {
     const body: MintJob = message.body
@@ -11,7 +12,7 @@ export async function processMint(message: Message<any>, env: Env) {
 
     // TODO requires the colors being used to mint have been mined by the secret (pubkey hardcoded)
     const mintMap = body.palette.length
-        ? new Map([[pubkey, new Map(body.palette as [number, number[]][])]])
+        ? new Map([[pubkey, sortMapKeys(new Map(body.palette as [number, number[]][]))]])
         : new Map()
 
     const args = Colorglyph.spec.funcArgsToScVals('glyph_mint', {

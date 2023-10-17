@@ -1,5 +1,8 @@
-const maxMineCount = 10
-const maxMintCount = 10
+const maxMineSize = 10
+
+// TODO at least these values need more tuning, especially the maxMintCount as there are likely size/count combos that could cause failure
+const maxMintSize = 10
+const maxMintCount = 96
 
 import {
     error,
@@ -12,7 +15,7 @@ import {
 } from 'itty-router'
 import { server } from '../queue/common'
 import { SorobanRpc } from 'soroban-client'
-import { chunkArray, sortMapKeys } from '../utils'
+import { chunkArray } from '../utils'
 
 // TODO Need a cron task to reboot alarms for mint jobs that were currently in process if/when the DO was rebooted
     // I think a simple ping/healthcheck to the DO id would be sufficient
@@ -59,6 +62,7 @@ export class MintFactory {
     async alarm() {
         // NOTE throwing in an alarm triggers a re-run up to six times, we should never throw an alarm then methinks
         try {
+            // TODO using for loops vs forEach loops are throttling our ability to look things up in parallel. Not sure that's best or neccesary
             for (const { hash, retry, body } of this.pending) { // TODO this could be a lot of pending hashes, we should cap this at some reasonable number
                 const index = this.pending.findIndex(({ hash: h }) => h === hash)
 
@@ -167,11 +171,27 @@ export class MintFactory {
         // Or actually maybe channel accounts are still good as it allows us to spread the mint for a single account across many channel accounts making the mint faster 🧠
 
         const body = await req.json() as MintRequest || {}
+        const sanitizedPaletteArray: [number, number][][] = []
 
-        const mineChunks = new Array(Math.ceil(body.palette.length / maxMineCount)).fill(0)
+        let map = new Map()
+
+        for (const i in body.palette) {
+            const index = Number(i)
+            const color = body.palette[index]
+            const amount: number = map.get(color) || 0
+            map.set(color, amount + 1)
+
+            if (
+                index === body.palette.length - 1
+                || map.size >= 10
+            ) {
+                sanitizedPaletteArray.push([...map.entries()])
+                map = new Map()
+            }
+        }
 
         await this.storage.put('status', 'mining')
-        await this.storage.put('mine_total', mineChunks.length)
+        await this.storage.put('mine_total', sanitizedPaletteArray.length)
         await this.storage.put('mine_progress', 0)
         await this.storage.put('body', {
             palette: body.palette,
@@ -180,18 +200,14 @@ export class MintFactory {
         })
 
         // queue up the mine jobs
-        const mineJobs: { body: MintJob }[] = mineChunks.map((_, index) => {
-            const slice = body.palette.slice(index * maxMineCount, index * maxMineCount + maxMineCount)
-
-            return {
-                body: {
-                    id: this.id.toString(),
-                    type: 'mine',
-                    secret: body.secret,
-                    palette: slice,
-                }
+        const mineJobs: { body: MintJob }[] = sanitizedPaletteArray.map((slice) => ({
+            body: {
+                id: this.id.toString(),
+                type: 'mine',
+                secret: body.secret,
+                palette: slice,
             }
-        })
+        }))
 
         for (const mineJobsChunk of chunkArray(mineJobs, 100)) {
             await this.env.MINT_QUEUE.sendBatch(mineJobsChunk)
@@ -242,11 +258,29 @@ export class MintFactory {
             if (!body)
                 throw new StatusError(404, 'Job not found')
 
-            let mintIndexes: Map<number, number[]> = new Map(body.palette.map((color: number, index: number) => [color, [index]]))
-            mintIndexes = sortMapKeys(mintIndexes)
+            const sanitizedPaletteArray: [number, number[]][][] = []
 
-            // TODO making these empty counter/loop arrays feels a little silly, but maybe not?
-            const mintChunks = new Array(Math.ceil(mintIndexes.size / maxMintCount)).fill(0)
+            let count = 0
+            let map = new Map()
+
+            for (const i in body.palette) {
+                const index = Number(i)
+                const color = body.palette[index]
+                const indexes: number[] = map.get(color) || []
+                indexes.push(index)
+                map.set(color, indexes)
+                count++
+
+                if (
+                    index === body.palette.length - 1
+                    || map.size >= maxMintSize
+                    || count >= maxMintCount
+                ) { 
+                    sanitizedPaletteArray.push([...map.entries()])
+                    count = 0
+                    map = new Map()
+                }
+            }
 
             await this.storage.put('status', 'minting')
             await this.storage.put('mine_progress', mineTotal)
@@ -257,23 +291,19 @@ export class MintFactory {
             // once that mint palette queue is empty we can move on to the final mint
 
             // Queue up the mint jobs
-            const mintJobs: MintJob[] = mintChunks.map((_, index) => {
-                const slice = Array.from(mintIndexes).slice(index * maxMintCount, index * maxMintCount + maxMintCount)
-
-                return {
-                    id: this.id.toString(),
-                    type: 'mint',
-                    palette: slice,
-                    secret: body.secret,
-                }
-            })
+            const mintJobs: MintJob[] = sanitizedPaletteArray.map((slice) => ({
+                id: this.id.toString(),
+                type: 'mint',
+                palette: slice,
+                secret: body.secret,
+            }))
 
             // Kick off the first mint job
             let [mintJob] = mintJobs.splice(0, 1)
 
             await this.env.MINT_QUEUE.send(mintJob)
             await this.storage.put('mint_jobs', mintJobs)
-            await this.storage.put('mint_total', mintChunks.length)
+            await this.storage.put('mint_total', sanitizedPaletteArray.length)
             await this.storage.put('mint_progress', 0)
         } else {
             await this.storage.put('mine_progress', mineProgress)

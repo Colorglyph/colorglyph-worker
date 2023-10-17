@@ -91,7 +91,7 @@ export class ChannelAccount {
             this.mergeable_channels.push(secret)
             await this.storage.put('mergeable', this.mergeable_channels)
             this.mergeChannels() // trigger the merging of channels but async
-            throw new StatusError(400, 'Insufficient channel funds')
+            throw new StatusError(400, `Insufficient channel funds: ${balance}`)
         } else {
             this.busy_channels = [...this.busy_channels, secret]
             await this.storage.put('busy', this.busy_channels)
@@ -158,6 +158,7 @@ export class ChannelAccount {
             tx.append('tx', transaction.toXDR())
 
             await horizon.post('/transactions', tx)
+            .then((res) => console.log('created', res))
 
             // If tx submission was successful add these channels to our available channels list
             this.available_channels.push(...channels)
@@ -219,6 +220,7 @@ export class ChannelAccount {
 
             try {
                 await horizon.post('/transactions', tx)
+                .then((res) => console.log('merged', res))
 
                 this.merging = false
 

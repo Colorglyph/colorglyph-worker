@@ -10,7 +10,7 @@ export async function processMine(message: Message<any>, env: Env) {
     const pubkey = kp.publicKey()
     const { contract: Colorglyph } = new Contract(kp)
 
-    let colors = new Map((body.palette as number[]).map((color) => [color, 1]))
+    let colors = new Map((body.palette as [number, number][]).map(([color, amount]) => [color, amount]))
         colors = sortMapKeys(colors)
 
     const args = Colorglyph.spec.funcArgsToScVals('colors_mine', {
