@@ -5,6 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
+  '@lunapaint/png-codec':
+    specifier: ^0.2.0
+    version: 0.2.0
   buffer:
     specifier: ^6.0.3
     version: 6.0.3
@@ -318,6 +321,12 @@ packages:
     resolution: {integrity: sha512-JUFJad5lv7jxj926GPgymrWQxxjPYuJNiNjNMzqT+HiuP6Vl3dk5xzG+8sTX96np0ZAluvaMzPsjhHZ5rNuNQQ==}
     engines: {node: '>=14'}
     dev: true
+
+  /@lunapaint/png-codec@0.2.0:
+    resolution: {integrity: sha512-S2Fk8+I27j8ZL585PlEK9hhljZcp6j+JWB5ZHAeePdufJMYHxXD2zlatLRaiy5riXRFqkCi/gong7yP9kSsEZg==}
+    dependencies:
+      pako: 2.1.0
+    dev: false
 
   /@stellar/freighter-api@1.5.1:
     resolution: {integrity: sha512-WEnKEqd+xVLnOq6bJv+fLXod8JQyPjzpOKTpH4g7tG9MM1fmXzD3y2SXJlpCIw8kVqtiC4ynWOlSWX+TKO7KiQ==}
@@ -687,6 +696,10 @@ packages:
     engines: {node: '>=0.10.0'}
     dev: true
 
+  /pako@2.1.0:
+    resolution: {integrity: sha512-w+eufiZ1WuJYgPXbV/PO3NCMEc3xqylkKHzp8bxp1uW4qaSNQUkwmLLEc3kKsfz8lpV1F8Ht3U1Cm+9Srog2ug==}
+    dev: false
+
   /path-to-regexp@6.2.1:
     resolution: {integrity: sha512-JLyh7xT1kizaEvcaXOQwOc2/Yhw6KZOvPf1S8401UyLk86CU79LN3vl7ztXGm/pZ+YjoyAJ4rxmHwbkBXJX+yw==}
     dev: true
@@ -934,7 +947,6 @@ packages:
     resolution: {tarball: https://codeload.github.com/stellar/js-stellar-base/tar.gz/c70ea241647db6e9d31d2f9678de308a185bae27}
     name: stellar-base
     version: 10.0.0-beta.3
-    prepare: true
     requiresBuild: true
     dependencies:
       base32.js: 0.1.0

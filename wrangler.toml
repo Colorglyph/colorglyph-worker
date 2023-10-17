@@ -2,6 +2,15 @@ name = "colorglyph-worker"
 main = "src/index.ts"
 compatibility_date = "2023-10-10"
 compatibility_flags = [ "nodejs_compat" ]
+workers_dev = true
+
+kv_namespaces = [
+    { binding = "GLYPHS", id = "6904475f966746e09bc39128d73dc975" }
+]
+
+[[r2_buckets]]
+binding = 'IMAGES'
+bucket_name = 'colorglyph-images'
 
 [[durable_objects.bindings]]
 name = "MINT_FACTORY"
@@ -13,7 +22,7 @@ class_name = "ChannelAccount"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["MintJob", "ChannelAccount"]
+new_classes = ["MintFactory", "ChannelAccount"]
 
 [[queues.producers]]
 binding = "TX_QUEUE"

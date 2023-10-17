@@ -15,11 +15,12 @@
     "wrangler": "^3.13.1"
   },
   "dependencies": {
+    "@lunapaint/png-codec": "^0.2.0",
     "buffer": "^6.0.3",
+    "colorglyph-sdk": "file:./ext/colorglyph-sdk",
     "itty-fetcher": "^0.9.3",
     "itty-router": "^4.0.23",
-    "stellar-base": "github:stellar/js-stellar-base",
     "soroban-client": "file:./ext/js-soroban-client-1.0.0-beta.2",
-    "colorglyph-sdk": "file:./ext/colorglyph-sdk"
+    "stellar-base": "github:stellar/js-stellar-base"
   }
 }

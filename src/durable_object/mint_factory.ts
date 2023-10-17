@@ -2,7 +2,7 @@ const maxMineSize = 10
 
 // TODO at least these values need more tuning, especially the maxMintCount as there are likely size/count combos that could cause failure
 const maxMintSize = 10
-const maxMintCount = 96
+const maxMintCount = 50
 
 import {
     error,
@@ -10,12 +10,14 @@ import {
     json,
     Router,
     RouterType,
+    status,
     StatusError,
     text,
 } from 'itty-router'
 import { server } from '../queue/common'
 import { SorobanRpc } from 'soroban-client'
-import { chunkArray } from '../utils'
+import { chunkArray, getGlyphHash } from '../utils'
+import { paletteToBase64 } from '../utils/paletteToBase64'
 
 // TODO Need a cron task to reboot alarms for mint jobs that were currently in process if/when the DO was rebooted
     // I think a simple ping/healthcheck to the DO id would be sufficient
@@ -43,8 +45,6 @@ export class MintFactory {
             .all('*', () => error(404))
 
         state.blockConcurrencyWhile(async () => {
-            await this.storage.deleteAlarm()
-            await this.storage.setAlarm(Date.now() + 5000)
             this.pending = await this.storage.get('pending') || []
         })
 
@@ -135,7 +135,7 @@ export class MintFactory {
         }
     }
 
-    async getJob() {
+    async getJob(req: Request) {
         const status = await this.storage.get('status')
         const mineTotal = await this.storage.get('mine_total')
         const mineProgress = await this.storage.get('mine_progress')
@@ -173,6 +173,9 @@ export class MintFactory {
         const body = await req.json() as MintRequest || {}
         const sanitizedPaletteArray: [number, number][][] = []
 
+        // Precalc the hash
+        const hash = await getGlyphHash(body.palette, body.width)
+
         let map = new Map()
 
         for (const i in body.palette) {
@@ -190,6 +193,7 @@ export class MintFactory {
             }
         }
 
+        await this.storage.put('hash', hash)
         await this.storage.put('status', 'mining')
         await this.storage.put('mine_total', sanitizedPaletteArray.length)
         await this.storage.put('mine_progress', 0)
@@ -198,6 +202,25 @@ export class MintFactory {
             width: body.width,
             secret: body.secret,
         })
+
+        // Pre-gen the image and store in R2
+        const image = await paletteToBase64(body.palette, body.width)
+
+        // NOTE this should maybe happen in a queue task? idk it's a very small amount of data
+        // At the very least do it before queuing anything up in case the queue fails for some reason
+        await this.env.IMAGES.put(hash, image)
+
+        // store in KV
+        // store the palette in the body
+        // store other info in the metadata
+        await this.env.GLYPHS.put(hash, new Uint8Array(body.palette), {
+            metadata: {
+                id: this.id.toString(),
+                width: body.width,
+            }
+        })
+
+        // TOOD should also put some stuff in a D1 for easy sorting and searching?
 
         // queue up the mine jobs
         const mineJobs: { body: MintJob }[] = sanitizedPaletteArray.map((slice) => ({
@@ -213,10 +236,6 @@ export class MintFactory {
             await this.env.MINT_QUEUE.sendBatch(mineJobsChunk)
         }
 
-        // TODO
-        // Precalc the hash and store in KV
-        // Pregen the image and store in Images
-
         return text(this.id.toString())
     }
     async patchJob(req: IRequestStrict) {
@@ -227,6 +246,11 @@ export class MintFactory {
         })
 
         await this.storage.put('pending', this.pending)
+
+        if (!await this.storage.getAlarm())
+            await this.storage.setAlarm(Date.now() + 5000)
+
+        return status(204)
     }
 
     async markProgress(body: MintJob, res: SorobanRpc.GetSuccessfulTransactionResponse) {
@@ -343,7 +367,7 @@ export class MintFactory {
     async mintComplete(res: SorobanRpc.GetSuccessfulTransactionResponse) {
         const hash = res.returnValue?.bytes().toString('hex')
 
-        await this.storage.put('hash', hash)
+        await this.storage.put('hash', hash) // NOTE hopefully the hash was the same as what we pre-calced 😳
         await this.storage.put('status', 'complete')
 
         // TODO eventually use flushAll but only once this success has been saved to the KV or some permanent store

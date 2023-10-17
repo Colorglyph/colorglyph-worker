@@ -1,8 +1,10 @@
 interface Env {
     TX_QUEUE: Queue
-	MINT_QUEUE: Queue
-	MINT_FACTORY: DurableObjectNamespace
+    MINT_QUEUE: Queue
+    MINT_FACTORY: DurableObjectNamespace
     CHANNEL_ACCOUNT: DurableObjectNamespace
+    IMAGES: R2Bucket
+    GLYPHS: KVNamespace
 }
 
 interface MintRequest {
@@ -13,10 +15,10 @@ interface MintRequest {
 
 interface MintJob {
     id: string
-    type: 'mine'|'mint'
+    type: 'mine' | 'mint'
     secret: string
+    palette: [number, number][] | [number, number[]][]
     channel?: string
-    palette: [number, number][]|[number, number[]][]
     width?: number
     tx?: string
 }
