@@ -64,8 +64,9 @@ export async function processTx(message: Message<any>, env: Env) {
             default: // DUPLICATE | TRY_AGAIN_LATER | ERROR
                 console.log(subTx)
 
-                // TODO 
-                // there's more work that needs to go into queuing up transactions that have error'ed for recoverable things like sequence number or insufficient fee vs things like the account missing or other unrecoverable issues
+                // TODO save the error?
+
+                // TODO there's more work that needs to go into queuing up transactions that have error'ed for recoverable things like sequence number or insufficient fee vs things like the account missing or other unrecoverable issues
 
                 throw new StatusError(400, subTx.status)
         }

@@ -16,6 +16,9 @@ const horizon = fetcher({ base: 'https://horizon-futurenet.stellar.org' })
 
 // TODO I'm not convinced we can't end up in a place where we have stuck busy channels that will never be returned to the pool
 
+// TODO We should place caps on channel arrays so these things don't grow unbounded somehow
+// They can be high but they should be capped
+
 export class ChannelAccount {
     env: Env
     storage: DurableObjectStorage
@@ -24,7 +27,7 @@ export class ChannelAccount {
     available_channels: string[] = []
     busy_channels: string[] = []
     create_channels: string[] = []
-    merge_channels: string[] = []
+    mergeable_channels: string[] = []
     ocean_kp: Keypair = Keypair.fromSecret('SAJR6ISVN7C5AP6ICU7NWP2RZUSSCIG3FMPD66WJWUA23REZGH66C4TE')
     creating: boolean = false
     merging: boolean = false
@@ -44,6 +47,7 @@ export class ChannelAccount {
         state.blockConcurrencyWhile(async () => {
             this.available_channels = await this.storage.get('available') || []
             this.busy_channels = await this.storage.get('busy') || []
+            this.mergeable_channels = await this.storage.get('mergeable') || []
         })
     }
     fetch(req: Request, ...extra: any[]) {
@@ -59,11 +63,14 @@ export class ChannelAccount {
     async debug(req: IRequestStrict) {
         const available = await this.storage.get('available')
         const busy = await this.storage.get('busy')
+        const mergeable = await this.storage.get('mergeable')
 
         return json({
             id: this.id.toString(),
+            pubkey: this.ocean_kp.publicKey(),
             available,
-            busy
+            busy,
+            mergeable
         })
     }
     async takeChannel(req: IRequestStrict) {
@@ -81,7 +88,8 @@ export class ChannelAccount {
         const { balance } = res.balances.find(({ asset_type }: any) => asset_type === 'native')
 
         if (Number(balance) < 2) { // if we have < {x} XLM we shouldn't use this channel account // TODO probably should be a bit more than 2 XLM
-            this.merge_channels.push(secret)
+            this.mergeable_channels.push(secret)
+            await this.storage.put('mergeable', this.mergeable_channels)
             this.mergeChannels() // trigger the merging of channels but async
             throw new StatusError(400, 'Insufficient channel funds')
         } else {
@@ -106,6 +114,8 @@ export class ChannelAccount {
 
         return status(204)
     }
+
+    // TODO there's a lot of repeated code between these two functions. We should probably refactor this to be more DRY
 
     async createChannels() {
         try {
@@ -159,6 +169,7 @@ export class ChannelAccount {
                 this.createChannels()
         } catch (err) {
             console.error(JSON.stringify(err, null, 2))
+            this.creating = false
         }
     }
     async mergeChannels() {
@@ -182,7 +193,8 @@ export class ChannelAccount {
             })
 
             // Grab up to 10 new channels (only 10 because we have to sign for all of them)
-            const channels = this.merge_channels.splice(0, 10)
+            const channels = this.mergeable_channels.splice(0, 10)
+            await this.storage.put('mergeable', this.mergeable_channels)
 
             // Merge the channel accounts
             for (const channel of channels) {
@@ -205,18 +217,22 @@ export class ChannelAccount {
             const tx = new FormData()
             tx.append('tx', transaction.toXDR())
 
-            await horizon.post('/transactions', tx)
+            try {
+                await horizon.post('/transactions', tx)
 
-            // TODO if this submission fails we effectively lose the `channels`
-            // we probably need to do a better job of tracking mergeable channels. We should never be losing funded channels
+                this.merging = false
 
-            this.merging = false
-
-            // If we have more to merge still then go ahead and merge them
-            if (this.merge_channels.length)
-                this.mergeChannels()
+                // If we have more to merge still then go ahead and merge them
+                if (this.mergeable_channels.length)
+                    this.mergeChannels()
+            } catch(err) {
+                console.error(JSON.stringify(err, null, 2))
+                this.mergeable_channels.push(...channels) // put the channels back in the queue
+                await this.storage.put('mergeable', this.mergeable_channels)
+            }
         } catch (err) {
             console.error(JSON.stringify(err, null, 2))
+            this.merging = false
         }
     }
 }
