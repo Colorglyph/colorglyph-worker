@@ -35,8 +35,10 @@ export async function processMine(message: Message<any>, env: Env) {
 
     const simTx = await server.simulateTransaction(tx)
 
-    if (!SorobanRpc.isSimulationSuccess(simTx))
+    if (!SorobanRpc.isSimulationSuccess(simTx)) {
+        console.error(simTx)
         throw new StatusError(400, 'Simulation failed')
+    }
 
     const currentLedger = await server.getLatestLedger()
     const validUntilLedger = currentLedger.sequence + (12 * 60 * 24) // TODO a days worth of ledgers?
