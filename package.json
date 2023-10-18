@@ -8,11 +8,11 @@
     "start": "wrangler dev --port 8787"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20231010.0",
+    "@cloudflare/workers-types": "^4.20231016.0",
     "@stellar/tsconfig": "^1.0.2",
-    "@types/node": "^20.8.5",
+    "@types/node": "^20.8.7",
     "typescript": "^5.2.2",
-    "wrangler": "^3.13.1"
+    "wrangler": "^3.13.2"
   },
   "dependencies": {
     "@lunapaint/png-codec": "^0.2.0",
