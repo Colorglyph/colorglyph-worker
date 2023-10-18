@@ -30,6 +30,7 @@ export class MintFactory {
     router: RouterType = Router()
     pending: { hash: string, retry: number, body: MintJob }[] = []
     channel_account_hash: DurableObjectId
+    complete: boolean = false
 
     constructor(state: DurableObjectState, env: Env) {
         this.id = state.id
@@ -62,6 +63,9 @@ export class MintFactory {
     }
     async alarm() {
         console.log(this.id.toString())
+        
+        if (this.complete)
+            return
 
         // TODO very concerned about eternal alarms
         // we should probably set some reasonable lifespan at which point we gracefully destroy the DO and kill the alarm
@@ -70,10 +74,11 @@ export class MintFactory {
         try {
             // TODO this could be a lot of pending hashes, we should cap this at some reasonable number
             const errors = await Promise.allSettled(this.pending.map(async ({ hash, retry, body }) => { 
+            // for (const { hash, retry, body } of this.pending) {
                 const index = this.pending.findIndex(({ hash: h }) => h === hash)
 
                 if (index === -1)
-                    throw new StatusError(400, 'Hash not found')
+                    throw new StatusError(400, 'Hash not found') // TODO idk if status errors make sense in the `alarm` here
 
                 const res = await server.getTransaction(hash)
 
@@ -121,12 +126,16 @@ export class MintFactory {
 
                         // TODO there can be failures do to the resourcing in which case we should toss this hash but re-queue the tx
                         // we should be somewhat careful here though as this type of failure likely means funds were spent
+                        // await this.env.MINT_QUEUE.send(body) // TEMP. Bad idea!!
 
                         // return the channel
                         await this.returnChannel(body.channel)
 
                         break;
                 }
+
+                await this.storage.put('pending', this.pending)
+            // }
             }))
             .then((res) => res.filter((res) => res.status === 'rejected'))
 
@@ -134,8 +143,6 @@ export class MintFactory {
                 console.error(errors)
                 throw new StatusError(500, 'Failed to process pending jobs')
             }
-
-            await this.storage.put('pending', this.pending)
         }
 
         catch (err) {
@@ -390,13 +397,19 @@ export class MintFactory {
         // TODO eventually use flushAll but only once this success has been saved to the KV or some permanent store
         // Otherwise our getJob will fail as we will have flushed out all the storage lol
 
-        await this.storage.sync()
-        await this.storage.deleteAlarm()
+        // TODO have confirmed that this isn't guaranteed to work
+        // if the alarm was currently in process when this was called it will still hit the finally block and re-queue the alarm
+        // should use something like `this.done = true`
 
-        this.state.blockConcurrencyWhile(async () => {
-            await this.storage.sync()
-            await this.storage.deleteAlarm()
-        })
+        this.complete = true
+
+        // await this.storage.sync()
+        // await this.storage.deleteAlarm()
+
+        // this.state.blockConcurrencyWhile(async () => {
+        //     await this.storage.sync()
+        //     await this.storage.deleteAlarm()
+        // })
     }
 
     async returnChannel(secret?: string) {
