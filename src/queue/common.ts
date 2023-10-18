@@ -4,7 +4,7 @@ import { Keypair, Networks, Transaction, Server, Contract as SorobanClientContra
 export const rpcUrl = 'https://rpc-futurenet.stellar.org'
 export const networkPassphrase = Networks.FUTURENET
 
-export const contractId = 'CC76ION4DC4ZOWOZINFTTTJR5VCVUB3UECVMHJ2RK4AUMUESTTXTDWQC'
+export const contractId = 'CBWYBBBXPDYXDH2HMRAYNSDBVMLGS4C7PFGGIZU6PK4HCJUPE7UKILHY'
 export const XLM = 'CB64D3G7SM2RTH6JSGG34DDTFTQ5CFDKVDZJZSODMCX4NJ2HV2KN7OHT'
 
 export const server = new Server(rpcUrl)
