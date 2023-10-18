@@ -70,7 +70,7 @@ export async function processTx(message: Message<MintJob>, env: Env) {
                 const existing = await env.ERRORS.get(body.id)
 
                 const encoder = new TextEncoder()
-                const data = encoder.encode(`${await existing?.text()}\n\n${subTx.errorResultXdr}`)
+                const data = encoder.encode(`${await existing?.text()}\n\n${subTx.errorResult?.toXDR('base64')}`)
 
                 await env.ERRORS.put(body.id, data)
 

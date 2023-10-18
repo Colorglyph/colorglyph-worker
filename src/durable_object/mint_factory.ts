@@ -18,14 +18,23 @@ import { server } from '../queue/common'
 import { SorobanRpc } from 'soroban-client'
 import { chunkArray, getGlyphHash } from '../utils'
 import { paletteToBase64 } from '../utils/paletteToBase64'
-import { fetcher } from 'itty-fetcher'
-
-const rpc = fetcher({ base: 'https://rpc-futurenet.stellar.org' })
 
 // TODO Need a cron task to reboot alarms for mint jobs that were currently in process if/when the DO was rebooted
-// I think a simple ping/healthcheck to the DO id would be sufficient
+// I think a simple ping/healthcheck to the DO id would be sufficient?
+// Actually not that the alarm isn't tied to the class instantiation I'm not sure we're in trouble as I think alarms persist across restarts
+// If not though we still need a way to restart the alarm pending process loop
 
 // TODO need a robust plan for DO to be restarted at any point
+// I'm starting to think the only sure fire way to pull this off is to only really do mission critial work in queues vs in the DO itself
+
+// TODO seeing a MASSIVE number or requests and sub requests
+// need to trace out what's going on here
+// could be that storage calls are considered sub requests?
+// maybe a rogue alarm?
+// maybe queue retries are getting out of hand?
+// are we accidentally duping pending hashes?
+// do KV, R2 and Queue requests count towards requests and/or sub requests?
+// does the queue consumer count as a request or sub request?
 
 export class MintFactory {
     id: DurableObjectId
@@ -137,14 +146,8 @@ export class MintFactory {
 
                         // TEMP while we wait for `soroban-client` -> `server.getTransaction` -> `FAILED` to send more complete data
                         try {
-                            const res: string = await rpc.post('/', {
-                                jsonrpc: '2.0',
-                                id: 8675309,
-                                method: 'getTransaction',
-                                params: {
-                                    hash
-                                }
-                            }).then((res) => JSON.stringify(res, null, 2))
+                            const res = await server._getTransaction(hash)
+                            .then((res) => JSON.stringify(res, null, 2))
 
                             console.log(hash, res)
                             
@@ -234,7 +237,7 @@ export class MintFactory {
 
             if (
                 index === body.palette.length - 1
-                || map.size >= 10
+                || map.size >= maxMineSize
             ) {
                 sanitizedPaletteArray.push([...map.entries()])
                 map = new Map()

@@ -20,7 +20,7 @@
     "colorglyph-sdk": "file:./ext/colorglyph-sdk",
     "itty-fetcher": "^0.9.3",
     "itty-router": "^4.0.23",
-    "soroban-client": "file:./ext/js-soroban-client-1.0.0-beta.2",
+    "soroban-client": "file:./ext/js-soroban-client-1.0.0-beta.3",
     "stellar-base": "github:stellar/js-stellar-base"
   }
 }

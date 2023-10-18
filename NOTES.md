@@ -4,3 +4,5 @@
 
 * Saving errors should maybe happen in queues?
     * Since we're appending it could require quite a bit of reading and writing
+
+* Consider hooking up Sentry for error logging
