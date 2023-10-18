@@ -42,6 +42,7 @@ export class MintFactory {
             .get('/', this.getJob.bind(this))
             .post('/', this.mintJob.bind(this))
             .patch('/:hash', this.patchJob.bind(this))
+            .delete('/', this.flushAll.bind(this))
             .all('*', () => error(404))
 
         state.blockConcurrencyWhile(async () => {
@@ -60,10 +61,15 @@ export class MintFactory {
             })
     }
     async alarm() {
+        console.log(this.id.toString())
+
+        // TODO very concerned about eternal alarms
+        // we should probably set some reasonable lifespan at which point we gracefully destroy the DO and kill the alarm
+        
         // NOTE throwing in an alarm triggers a re-run up to six times, we should never throw an alarm then methinks
         try {
-            // TODO using for loops vs forEach loops are throttling our ability to look things up in parallel. Not sure that's best or neccesary
-            for (const { hash, retry, body } of this.pending) { // TODO this could be a lot of pending hashes, we should cap this at some reasonable number
+            // TODO this could be a lot of pending hashes, we should cap this at some reasonable number
+            const errors = await Promise.allSettled(this.pending.map(async ({ hash, retry, body }) => { 
                 const index = this.pending.findIndex(({ hash: h }) => h === hash)
 
                 if (index === -1)
@@ -121,6 +127,12 @@ export class MintFactory {
 
                         break;
                 }
+            }))
+            .then((res) => res.filter((res) => res.status === 'rejected'))
+
+            if (errors.length) {
+                console.error(errors)
+                throw new StatusError(500, 'Failed to process pending jobs')
             }
 
             await this.storage.put('pending', this.pending)
@@ -232,8 +244,13 @@ export class MintFactory {
             }
         }))
 
-        for (const mineJobsChunk of chunkArray(mineJobs, 100)) {
-            await this.env.MINT_QUEUE.sendBatch(mineJobsChunk)
+        const errors = await Promise
+        .allSettled(chunkArray(mineJobs, 100).map((mineJobsChunk) => this.env.MINT_QUEUE.sendBatch(mineJobsChunk)))
+        .then((res) => res.filter((res) => res.status === 'rejected'))
+
+        if (errors.length) {
+            console.error(errors)
+            throw new StatusError(500, 'Failed to queue mine jobs')
         }
 
         return text(this.id.toString())
@@ -389,7 +406,7 @@ export class MintFactory {
             .fetch(`http://fake-host/return/${secret}`)
         : undefined
     }
-    async flushAll() {
+    async flushAll(req: Request) {
         await this.storage.sync()
         await this.storage.deleteAlarm()
         await this.storage.deleteAll()
@@ -399,5 +416,8 @@ export class MintFactory {
             await this.storage.deleteAlarm()
             await this.storage.deleteAll()
         })
+
+        if (req)
+            return status(204)
     }
 }

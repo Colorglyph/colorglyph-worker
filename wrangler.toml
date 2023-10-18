@@ -3,6 +3,7 @@ main = "src/index.ts"
 compatibility_date = "2023-10-10"
 compatibility_flags = [ "nodejs_compat" ]
 workers_dev = true
+usage_model = "unbound"
 
 kv_namespaces = [
     { binding = "GLYPHS", id = "6904475f966746e09bc39128d73dc975" }
