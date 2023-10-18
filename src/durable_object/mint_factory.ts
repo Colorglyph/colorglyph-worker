@@ -32,10 +32,10 @@ export class MintFactory {
     storage: DurableObjectStorage
     env: Env
     state: DurableObjectState
-    router: RouterType = Router()
-    pending: { hash: string, retry: number, body: MintJob }[] = []
+    router: RouterType
+    pending: { hash: string, retry: number, body: MintJob }[]
     channel_account_hash: DurableObjectId
-    complete: boolean = false
+    complete: boolean
     ttl: number
 
     constructor(state: DurableObjectState, env: Env) {
@@ -43,7 +43,10 @@ export class MintFactory {
         this.storage = state.storage
         this.env = env
         this.state = state
+        this.router = Router()
+        this.pending = []
         this.channel_account_hash = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1')
+        this.complete = false
         this.ttl = Date.now() + 3_600_000 // DO will survive for 1hr before dying the good death. Any mints taking longer than that won't complete
 
         this.router
@@ -69,12 +72,12 @@ export class MintFactory {
             })
     }
     async alarm() {
-        console.log(this.id.toString())
-
         if (
             this.complete
             || Date.now() > this.ttl
         ) return
+
+        console.log(this.id.toString())
 
         // TODO very concerned about eternal alarms
         // we should probably set some reasonable lifespan at which point we gracefully destroy the DO and kill the alarm
@@ -302,7 +305,14 @@ export class MintFactory {
 
         return status(204)
     }
-    async flushAll(req: Request) {
+    async flushAll(req?: Request) {
+        // TODO be a little smarter before flushing everything
+        // if there are pending tasks fail them gracefully. e.g. don't lose channel accounts
+        // hmm interestingly too it's possible tasks may be queued which will bring this DO back to life which would be very bad
+        // we likely need a failsafe way for all requests to know if the DO is dead or not
+
+        this.complete = true
+
         await this.storage.sync()
         await this.storage.deleteAlarm()
         await this.storage.deleteAll()
@@ -429,14 +439,30 @@ export class MintFactory {
         }
     }
     async mintComplete(res: SorobanRpc.GetSuccessfulTransactionResponse) {
+        const pre_hash = await this.storage.get('hash')
         const hash = res.returnValue?.bytes().toString('hex')
 
-        await this.storage.put('hash', hash) // NOTE hopefully the hash was the same as what we pre-calced 😳
-        await this.storage.put('status', 'complete')
+        if (pre_hash !== hash)
+            console.log('!! BIG BAD HASH MISMATCH !!')
 
-        // TODO eventually use flushAll but only once this success has been saved to the KV or some permanent store
+        if (hash) {
+            // await this.storage.put('hash', hash) // NOTE hopefully the hash was the same as what we pre-calced 😳
 
-        this.complete = true
+            const body: any = await this.storage.get('body')
+
+            await this.env.GLYPHS.put(hash, new Uint8Array(body.palette), {
+                metadata: {
+                    id: this.id.toString(),
+                    width: body.width,
+                    status: 'minted' // system oriented. i.e. `minted|scraped`
+                }
+            })
+        }
+        
+        // await this.storage.put('status', 'complete')
+
+        // NOTE no need to store anything on the DO if we're just going to flush as the last command
+        await this.flushAll()
     }
 
     async returnChannel(secret?: string) {

@@ -27,19 +27,26 @@ export class ChannelAccount {
     storage: DurableObjectStorage
     id: DurableObjectId
     router: RouterType
-    available_channels: string[] = []
-    busy_channels: string[] = []
-    create_channels: string[] = []
-    mergeable_channels: string[] = []
-    ocean_kp: Keypair = Keypair.fromSecret('SAJR6ISVN7C5AP6ICU7NWP2RZUSSCIG3FMPD66WJWUA23REZGH66C4TE')
-    creating: boolean = false
-    merging: boolean = false
+    available_channels: string[]
+    busy_channels: string[]
+    create_channels: string[]
+    mergeable_channels: string[]
+    ocean_kp: Keypair
+    creating: boolean
+    merging: boolean
 
     constructor(state: DurableObjectState, env: Env) {
         this.id = state.id
         this.storage = state.storage
         this.env = env
         this.router = Router()
+        this.available_channels = []
+        this.busy_channels = []
+        this.create_channels = []
+        this.mergeable_channels = []
+        this.ocean_kp = Keypair.fromSecret('SAJR6ISVN7C5AP6ICU7NWP2RZUSSCIG3FMPD66WJWUA23REZGH66C4TE')
+        this.creating = false
+        this.merging = false
 
         this.router
             .get('/debug', this.debug.bind(this))
