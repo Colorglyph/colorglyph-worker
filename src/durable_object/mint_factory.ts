@@ -20,7 +20,7 @@ import { chunkArray, getGlyphHash } from '../utils'
 import { paletteToBase64 } from '../utils/paletteToBase64'
 
 // TODO Need a cron task to reboot alarms for mint jobs that were currently in process if/when the DO was rebooted
-    // I think a simple ping/healthcheck to the DO id would be sufficient
+// I think a simple ping/healthcheck to the DO id would be sufficient
 
 export class MintFactory {
     id: DurableObjectId
@@ -31,6 +31,7 @@ export class MintFactory {
     pending: { hash: string, retry: number, body: MintJob }[] = []
     channel_account_hash: DurableObjectId
     complete: boolean = false
+    ttl: number
 
     constructor(state: DurableObjectState, env: Env) {
         this.id = state.id
@@ -38,6 +39,7 @@ export class MintFactory {
         this.env = env
         this.state = state
         this.channel_account_hash = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1')
+        this.ttl = Date.now() + 3_600_000 // DO will survive for 1hr before dying the good death. Any mints taking longer than that won't complete
 
         this.router
             .get('/', this.getJob.bind(this))
@@ -63,18 +65,22 @@ export class MintFactory {
     }
     async alarm() {
         console.log(this.id.toString())
-        
-        if (this.complete)
-            return
+
+        if (
+            this.complete
+            || Date.now() > this.ttl
+        ) return
 
         // TODO very concerned about eternal alarms
         // we should probably set some reasonable lifespan at which point we gracefully destroy the DO and kill the alarm
         // for now let's hard code a 1hr max lifespan
-        
+
         // NOTE throwing in an alarm triggers a re-run up to six times, we should never throw an alarm then methinks
         try {
+            // NOTE we use a for loop vs a Promise.all/allSettled in order to ensure sequential processing
+            // Not sure why but many and very bad things always happened when processing in parallel
+            
             // TODO this could be a lot of pending hashes, we should cap this at some reasonable number
-            // const errors = await Promise.allSettled(this.pending.map(async ({ hash, retry, body }) => { 
             for (const { hash, retry, body } of this.pending) {
                 const index = this.pending.findIndex(({ hash: h }) => h === hash)
 
@@ -137,13 +143,6 @@ export class MintFactory {
 
                 await this.storage.put('pending', this.pending)
             }
-            // }))
-            // .then((res) => res.filter((res) => res.status === 'rejected'))
-
-            // if (errors.length) {
-            //     console.error(JSON.stringify(errors, null, 2))
-            //     throw new StatusError(500, 'Failed to process pending jobs')
-            // }
         }
 
         catch (err) {
@@ -253,8 +252,8 @@ export class MintFactory {
         }))
 
         const errors = await Promise
-        .allSettled(chunkArray(mineJobs, 100).map((mineJobsChunk) => this.env.MINT_QUEUE.sendBatch(mineJobsChunk)))
-        .then((res) => res.filter((res) => res.status === 'rejected'))
+            .allSettled(chunkArray(mineJobs, 100).map((mineJobsChunk) => this.env.MINT_QUEUE.sendBatch(mineJobsChunk)))
+            .then((res) => res.filter((res) => res.status === 'rejected'))
 
         if (errors.length) {
             console.error(JSON.stringify(errors, null, 2))
@@ -276,6 +275,20 @@ export class MintFactory {
             await this.storage.setAlarm(Date.now() + 5000)
 
         return status(204)
+    }
+    async flushAll(req: Request) {
+        await this.storage.sync()
+        await this.storage.deleteAlarm()
+        await this.storage.deleteAll()
+
+        this.state.blockConcurrencyWhile(async () => {
+            await this.storage.sync()
+            await this.storage.deleteAlarm()
+            await this.storage.deleteAll()
+        })
+
+        if (req)
+            return status(204)
     }
 
     async markProgress(body: MintJob, res: SorobanRpc.GetSuccessfulTransactionResponse) {
@@ -324,7 +337,7 @@ export class MintFactory {
                     index === body.palette.length - 1
                     || map.size >= maxMintSize
                     || count >= maxMintCount
-                ) { 
+                ) {
                     sanitizedPaletteArray.push([...map.entries()])
                     count = 0
                     map = new Map()
@@ -396,42 +409,15 @@ export class MintFactory {
         await this.storage.put('status', 'complete')
 
         // TODO eventually use flushAll but only once this success has been saved to the KV or some permanent store
-        // Otherwise our getJob will fail as we will have flushed out all the storage lol
-
-        // TODO have confirmed that this isn't guaranteed to work
-        // if the alarm was currently in process when this was called it will still hit the finally block and re-queue the alarm
-        // should use something like `this.done = true`
 
         this.complete = true
-
-        // await this.storage.sync()
-        // await this.storage.deleteAlarm()
-
-        // this.state.blockConcurrencyWhile(async () => {
-        //     await this.storage.sync()
-        //     await this.storage.deleteAlarm()
-        // })
     }
 
     async returnChannel(secret?: string) {
-        return secret 
-        ? this.env.CHANNEL_ACCOUNT
-            .get(this.channel_account_hash)
-            .fetch(`http://fake-host/return/${secret}`)
-        : undefined
-    }
-    async flushAll(req: Request) {
-        await this.storage.sync()
-        await this.storage.deleteAlarm()
-        await this.storage.deleteAll()
-
-        this.state.blockConcurrencyWhile(async () => {
-            await this.storage.sync()
-            await this.storage.deleteAlarm()
-            await this.storage.deleteAll()
-        })
-
-        if (req)
-            return status(204)
+        return secret
+            ? this.env.CHANNEL_ACCOUNT
+                .get(this.channel_account_hash)
+                .fetch(`http://fake-host/return/${secret}`)
+            : undefined
     }
 }

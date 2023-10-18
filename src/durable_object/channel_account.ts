@@ -137,6 +137,7 @@ export class ChannelAccount {
         const secret = req.params.secret
         const index = this.busy_channels.findIndex((channel) => channel === secret)
 
+        // TODO If we error here we should probably still do something with this secret so we don't throw a funded account 
         if (index === -1)
             throw new StatusError(400, 'Channel not busy')
 
@@ -191,6 +192,9 @@ export class ChannelAccount {
             const tx = new FormData()
             tx.append('tx', transaction.toXDR())
 
+            // TODO if the DO shuts down during submission we could create channels that never get saved
+            // we should probably go ahead and add these to the available channels list before we submit the tx
+            // and then in case of failure we just remove them again
             await horizon.post('/transactions', tx)
                 .then((res) => console.log('created', res))
 
@@ -253,6 +257,8 @@ export class ChannelAccount {
             tx.append('tx', transaction.toXDR())
 
             try {
+                // TODO in case of DO shutdown in the middle of this submission the merged accounts won't be removed
+                // likely fine but we should lookup accounts before we try and merge them and if they're 404 don't add them to the tx
                 await horizon.post('/transactions', tx)
                     .then((res) => console.log('merged', res))
 
