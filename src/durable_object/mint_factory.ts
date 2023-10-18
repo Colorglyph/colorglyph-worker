@@ -69,12 +69,13 @@ export class MintFactory {
 
         // TODO very concerned about eternal alarms
         // we should probably set some reasonable lifespan at which point we gracefully destroy the DO and kill the alarm
+        // for now let's hard code a 1hr max lifespan
         
         // NOTE throwing in an alarm triggers a re-run up to six times, we should never throw an alarm then methinks
         try {
             // TODO this could be a lot of pending hashes, we should cap this at some reasonable number
-            const errors = await Promise.allSettled(this.pending.map(async ({ hash, retry, body }) => { 
-            // for (const { hash, retry, body } of this.pending) {
+            // const errors = await Promise.allSettled(this.pending.map(async ({ hash, retry, body }) => { 
+            for (const { hash, retry, body } of this.pending) {
                 const index = this.pending.findIndex(({ hash: h }) => h === hash)
 
                 if (index === -1)
@@ -135,18 +136,18 @@ export class MintFactory {
                 }
 
                 await this.storage.put('pending', this.pending)
-            // }
-            }))
-            .then((res) => res.filter((res) => res.status === 'rejected'))
-
-            if (errors.length) {
-                console.error(errors)
-                throw new StatusError(500, 'Failed to process pending jobs')
             }
+            // }))
+            // .then((res) => res.filter((res) => res.status === 'rejected'))
+
+            // if (errors.length) {
+            //     console.error(JSON.stringify(errors, null, 2))
+            //     throw new StatusError(500, 'Failed to process pending jobs')
+            // }
         }
 
         catch (err) {
-            console.error(err)
+            console.error(JSON.stringify(err, null, 2))
         }
 
         finally {
@@ -256,7 +257,7 @@ export class MintFactory {
         .then((res) => res.filter((res) => res.status === 'rejected'))
 
         if (errors.length) {
-            console.error(errors)
+            console.error(JSON.stringify(errors, null, 2))
             throw new StatusError(500, 'Failed to queue mine jobs')
         }
 

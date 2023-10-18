@@ -1,4 +1,3 @@
-import { Buffer } from 'buffer'
 import { encodePng } from '@lunapaint/png-codec'
 
 export async function paletteToBase64(palette: number[], width: number) {

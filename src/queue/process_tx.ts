@@ -72,7 +72,7 @@ export async function processTx(message: Message<any>, env: Env) {
         }
     } catch(err) {
         // Wait 5 seconds before retrying
-        console.error(err)
+        console.error(JSON.stringify(err, null, 2))
 
         // return the channel account
         if (secret)

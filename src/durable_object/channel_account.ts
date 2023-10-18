@@ -15,7 +15,7 @@ import { networkPassphrase } from '../queue/common'
 const horizon = fetcher({ base: 'https://horizon-futurenet.stellar.org' })
 
 // TODO I'm not convinced we can't end up in a place where we have stuck busy channels that will never be returned to the pool
-    // For example when a DO dies for things like CPU/MEM and the process never resolves and thus the busy channel is never returned
+// For example when a DO dies for things like CPU/MEM and the process never resolves and thus the busy channel is never returned
 
 // TODO We should place caps on channel arrays so these things don't grow unbounded somehow
 // They can be high but they should be capped
@@ -40,7 +40,8 @@ export class ChannelAccount {
         this.router = Router()
 
         this.router
-            .get('/', this.debug.bind(this))
+            .get('/debug', this.debug.bind(this))
+            .delete('/toss/:type/:secret', this.toss.bind(this))
             .get('/take', this.takeChannel.bind(this))
             .get('/return/:secret', this.returnChannel.bind(this))
             .all('*', () => error(404))
@@ -74,31 +75,63 @@ export class ChannelAccount {
             mergeable
         })
     }
+    async toss(req: IRequestStrict) {
+        let channel_array: string[]
+
+        switch (req.params.type) {
+            case 'available':
+                channel_array = this.available_channels
+                break;
+            case 'busy':
+                channel_array = this.busy_channels
+                break;
+            case 'mergeable':
+                channel_array = this.mergeable_channels
+                break;
+            default:
+                throw new StatusError(400, 'Invalid type')
+        }
+
+        const index = channel_array.findIndex((channel) => channel === req.params.secret)
+
+        if (index === -1)
+            throw new StatusError(404, 'Channel not found')
+
+        channel_array.splice(index, 1)
+
+        await this.storage.put(req.params.type, channel_array)
+
+        return status(204)
+    }
     async takeChannel(req: IRequestStrict) {
-        if (this.available_channels.length === 0) {
+        const secret = this.available_channels.shift()
+
+        if (!secret) {
             this.create_channels.push(Keypair.random().secret())
             this.createChannels() // trigger the creation of new channels but async
             throw new StatusError(400, 'No channels available')
         }
 
-        const [secret] = this.available_channels.splice(0, 1)
-        await this.storage.put('available', this.available_channels)
+        try {
+            await this.storage.put('available', this.available_channels)
 
-        const pubkey = Keypair.fromSecret(secret).publicKey()
-        const res: any = await horizon.get(`/accounts/${pubkey}`)
-        const { balance } = res.balances.find(({ asset_type }: any) => asset_type === 'native')
+            const pubkey = Keypair.fromSecret(secret).publicKey()
+            const res: any = await horizon.get(`/accounts/${pubkey}`)
+            const { balance } = res.balances.find(({ asset_type }: any) => asset_type === 'native')
 
-        if (Number(balance) < 2) { // if we have < {x} XLM we shouldn't use this channel account // TODO probably should be a bit more than 2 XLM
+            if (Number(balance) < 2)// if we have < {x} XLM we shouldn't use this channel account // TODO probably should be a bit more than 2 XLM
+                throw new StatusError(400, `Insufficient channel funds: ${balance}`)
+
+            this.busy_channels = [...this.busy_channels, secret]
+            await this.storage.put('busy', this.busy_channels)
+
+            return text(secret)
+        } catch(err) {
             this.mergeable_channels.push(secret)
             await this.storage.put('mergeable', this.mergeable_channels)
             this.mergeChannels() // trigger the merging of channels but async
-            throw new StatusError(400, `Insufficient channel funds: ${balance}`)
-        } else {
-            this.busy_channels = [...this.busy_channels, secret]
-            await this.storage.put('busy', this.busy_channels)
+            throw err
         }
-
-        return text(secret)
     }
     async returnChannel(req: IRequestStrict) {
         const secret = req.params.secret
@@ -122,7 +155,7 @@ export class ChannelAccount {
         try {
             // Only one create channels tx at a time, otherwise we hit sequence number issues
             if (
-                this.creating 
+                this.creating
                 || this.merging
             ) return
 
@@ -159,7 +192,7 @@ export class ChannelAccount {
             tx.append('tx', transaction.toXDR())
 
             await horizon.post('/transactions', tx)
-            .then((res) => console.log('created', res))
+                .then((res) => console.log('created', res))
 
             // If tx submission was successful add these channels to our available channels list
             this.available_channels.push(...channels)
@@ -221,14 +254,14 @@ export class ChannelAccount {
 
             try {
                 await horizon.post('/transactions', tx)
-                .then((res) => console.log('merged', res))
+                    .then((res) => console.log('merged', res))
 
                 this.merging = false
 
                 // If we have more to merge still then go ahead and merge them
                 if (this.mergeable_channels.length)
                     this.mergeChannels()
-            } catch(err) {
+            } catch (err) {
                 console.error(JSON.stringify(err, null, 2))
                 this.mergeable_channels.push(...channels) // put the channels back in the queue
                 await this.storage.put('mergeable', this.mergeable_channels)

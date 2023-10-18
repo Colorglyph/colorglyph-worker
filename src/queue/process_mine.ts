@@ -11,14 +11,14 @@ export async function processMine(message: Message<any>, env: Env) {
     const { contract: Colorglyph } = new Contract(kp)
 
     let colors = new Map((body.palette as [number, number][]).map(([color, amount]) => [color, amount]))
-        colors = sortMapKeys(colors)
+    colors = sortMapKeys(colors)
 
     const args = Colorglyph.spec.funcArgsToScVals('colors_mine', {
-        miner: pubkey, 
-        to: undefined, 
+        miner: pubkey,
+        to: undefined,
         colors: new Map(colors)
     })
-    
+
     const operation = RawContract.call(
         'colors_mine',
         ...args
@@ -29,9 +29,9 @@ export async function processMine(message: Message<any>, env: Env) {
         fee: '0',
         networkPassphrase,
     })
-    .addOperation(operation)
-    .setTimeout(TimeoutInfinite)
-    .build()
+        .addOperation(operation)
+        .setTimeout(TimeoutInfinite)
+        .build()
 
     const simTx = await server.simulateTransaction(tx)
 
@@ -53,7 +53,7 @@ export async function processMine(message: Message<any>, env: Env) {
 
     const operationAuthorized = Operation.invokeHostFunction({
         func: operation.body().invokeHostFunctionOp().hostFunction(),
-        auth: [ 
+        auth: [
             // authEntry
             xdr.SorobanAuthorizationEntry.fromXDR(authEntry.toXDR()) // Needed as long as we're mixing XDR from `stellar-base` and `soroban-client`
         ]
