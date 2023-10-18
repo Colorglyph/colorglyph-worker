@@ -4,6 +4,7 @@ interface Env {
     MINT_FACTORY: DurableObjectNamespace
     CHANNEL_ACCOUNT: DurableObjectNamespace
     IMAGES: R2Bucket
+    ERRORS: R2Bucket
     GLYPHS: KVNamespace
 }
 

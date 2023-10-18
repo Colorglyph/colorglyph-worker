@@ -4,8 +4,8 @@ import { authorizeEntry } from 'stellar-base'
 import { sortMapKeys } from '../utils'
 import { StatusError } from 'itty-router'
 
-export async function processMine(message: Message<any>, env: Env) {
-    const body: MintJob = message.body
+export async function processMine(message: Message<MintJob>, env: Env) {
+    const body = message.body
     const kp = Keypair.fromSecret(body.secret)
     const pubkey = kp.publicKey()
     const { contract: Colorglyph } = new Contract(kp)
@@ -37,6 +37,21 @@ export async function processMine(message: Message<any>, env: Env) {
 
     if (!SorobanRpc.isSimulationSuccess(simTx)) {
         console.error(simTx)
+
+        // save the error
+        const existing = await env.ERRORS.get(body.id)
+
+        let events = ''
+
+        for (const event of simTx.events) {
+            events += `\n\n${event.event().toXDR('base64')}`
+        }
+
+        const encoder = new TextEncoder()
+        const data = encoder.encode(`${await existing?.text()}\n\n${events}\n\n${simTx.error}`)
+
+        await env.ERRORS.put(body.id, data)
+
         throw new StatusError(400, 'Simulation failed')
     }
 

@@ -3,14 +3,14 @@ import { server, networkPassphrase } from './common'
 import { StatusError } from 'itty-router'
 import { getRandomNumber } from '../utils'
 
-export async function processTx(message: Message<any>, env: Env) {
+export async function processTx(message: Message<MintJob>, env: Env) {
     const hash = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1') // Hard coded because we need to resolve to the same DO app wide
     const stub = env.CHANNEL_ACCOUNT.get(hash)
 
     let secret: string | undefined
 
     try {
-        const body: MintJob = message.body
+        const body = message.body
 
         if (!body.tx)
             throw new StatusError(400, 'Missing tx')
@@ -52,7 +52,7 @@ export async function processTx(message: Message<any>, env: Env) {
 
                 const hash = env.MINT_FACTORY.idFromString(body.id)
 
-                return env.MINT_FACTORY
+                await env.MINT_FACTORY
                     .get(hash)
                     .fetch(`http://fake-host/${subTx.hash}`, {
                         method: 'PATCH',
@@ -61,23 +61,31 @@ export async function processTx(message: Message<any>, env: Env) {
                             channel: secret // send along the channel secret so we can return it to the pool later
                         })
                     })
+                    
+                break;
             default: // DUPLICATE | TRY_AGAIN_LATER | ERROR
                 console.log(subTx)
 
-                // TODO save the error?
+                // save the error
+                const existing = await env.ERRORS.get(body.id)
+
+                const encoder = new TextEncoder()
+                const data = encoder.encode(`${await existing?.text()}\n\n${subTx.errorResultXdr}`)
+
+                await env.ERRORS.put(body.id, data)
 
                 // TODO there's more work that needs to go into queuing up transactions that have error'ed for recoverable things like sequence number or insufficient fee vs things like the account missing or other unrecoverable issues
 
                 throw new StatusError(400, subTx.status)
         }
     } catch(err) {
-        // Wait 5 seconds before retrying
         console.error(JSON.stringify(err, null, 2))
 
         // return the channel account
         if (secret)
             await stub.fetch(`http://fake-host/return/${secret}`)
 
+        // Wait 5 seconds before retrying
         await new Promise((resolve) => setTimeout(resolve, 5000))
         message.retry()
     }

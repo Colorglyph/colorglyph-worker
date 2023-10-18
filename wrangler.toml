@@ -6,8 +6,12 @@ workers_dev = true
 usage_model = "unbound"
 
 kv_namespaces = [
-    { binding = "GLYPHS", id = "6904475f966746e09bc39128d73dc975" }
+    { binding = "GLYPHS", id = "fbfea727106c4c2893fe8d03563d0387" }
 ]
+
+[[r2_buckets]]
+binding = 'ERRORS'
+bucket_name = 'colorglyph-errors'
 
 [[r2_buckets]]
 binding = 'IMAGES'
@@ -32,7 +36,7 @@ queue = "colorglyph-tx-queue"
 [[queues.consumers]]
 queue = "colorglyph-tx-queue"
 max_batch_size = 1
-max_batch_timeout = 10
+max_batch_timeout = 5
 max_retries = 12
 max_concurrency = 1
 
@@ -43,9 +47,8 @@ queue = "colorglyph-mint-queue"
 [[queues.consumers]]
 queue = "colorglyph-mint-queue"
 max_batch_size = 1
-max_batch_timeout = 10
+max_batch_timeout = 5
 max_retries = 6
 max_concurrency = 1
 
-# Stand up a dlq for retrying failed mint jobs
-# Stand up some method for dealing with unresolvable issues (e.g. secret account too low balance to keep making progress)
+# TODO Stand up a dlqs for logging failed jobs

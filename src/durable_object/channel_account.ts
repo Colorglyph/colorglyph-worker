@@ -20,6 +20,8 @@ const horizon = fetcher({ base: 'https://horizon-futurenet.stellar.org' })
 // TODO We should place caps on channel arrays so these things don't grow unbounded somehow
 // They can be high but they should be capped
 
+// TODO should we save errors from this DO? Probably
+
 export class ChannelAccount {
     env: Env
     storage: DurableObjectStorage

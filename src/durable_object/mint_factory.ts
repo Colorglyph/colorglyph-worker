@@ -18,9 +18,14 @@ import { server } from '../queue/common'
 import { SorobanRpc } from 'soroban-client'
 import { chunkArray, getGlyphHash } from '../utils'
 import { paletteToBase64 } from '../utils/paletteToBase64'
+import { fetcher } from 'itty-fetcher'
+
+const rpc = fetcher({ base: 'https://rpc-futurenet.stellar.org' })
 
 // TODO Need a cron task to reboot alarms for mint jobs that were currently in process if/when the DO was rebooted
 // I think a simple ping/healthcheck to the DO id would be sufficient
+
+// TODO need a robust plan for DO to be restarted at any point
 
 export class MintFactory {
     id: DurableObjectId
@@ -85,7 +90,7 @@ export class MintFactory {
                 const index = this.pending.findIndex(({ hash: h }) => h === hash)
 
                 if (index === -1)
-                    throw new StatusError(400, 'Hash not found') // TODO idk if status errors make sense in the `alarm` here
+                    throw new StatusError(400, 'Hash not found') // TODO idk if `StatusError` makes sense in the `alarm` here
 
                 const res = await server.getTransaction(hash)
 
@@ -124,12 +129,33 @@ export class MintFactory {
 
                         break;
                     case 'FAILED':
-                        console.log(hash, res)
-
                         // remove the hash from pending
                         this.pending.splice(index, 1)
 
-                        // TODO save the error
+                        // TEMP while we wait for `soroban-client` -> `server.getTransaction` -> `FAILED` to send more complete data
+                        try {
+                            const res: string = await rpc.post('/', {
+                                jsonrpc: '2.0',
+                                id: 8675309,
+                                method: 'getTransaction',
+                                params: {
+                                    hash
+                                }
+                            }).then((res) => JSON.stringify(res, null, 2))
+
+                            console.log(hash, res)
+                            
+                            // save the error
+                            const id = this.id.toString()
+                            const existing = await this.env.ERRORS.get(id)
+
+                            const encoder = new TextEncoder()
+                            const data = encoder.encode(`${await existing?.text()}\n\n${hash}\n\n${res}`)
+                            
+                            await this.env.ERRORS.put(id, data)
+                        } catch {
+                            console.log(hash, res)
+                        }
 
                         // TODO there can be failures do to the resourcing in which case we should toss this hash but re-queue the tx
                         // we should be somewhat careful here though as this type of failure likely means funds were spent

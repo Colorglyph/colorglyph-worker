@@ -3,7 +3,7 @@ import { processMine } from "./process_mine"
 import { processMint } from "./process_mint"
 import { processTx } from "./process_tx"
 
-export async function processQueue(batch: MessageBatch<any>, env: Env) {
+export async function processQueue(batch: MessageBatch<MintJob>, env: Env) {
     if (batch.messages.length > 1)
         throw new StatusError(400, `Batch size > 1 not supported`)
 
