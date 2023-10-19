@@ -33,7 +33,7 @@ export async function processQueue(batch: MessageBatch<any>, env: Env, ctx: Exec
                     const stub = env.CHANNEL_ACCOUNT.get(id)
                     
                     // return the channel
-                    ctx.waitUntil(stub.fetch(`http://fake-host/return/${message.body.channel}`, {method: 'PUT'}))
+                    await stub.fetch(`http://fake-host/return/${message.body.channel}`, {method: 'PUT'})
         
                     // re-queue the tx
                     await env.TX_SEND.send(message.body)

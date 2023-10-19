@@ -95,7 +95,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
         // return the channel account
         if (channel)
-            ctx.waitUntil(stub.fetch(`http://fake-host/return/${channel}`, {method: 'PUT'}))
+            await stub.fetch(`http://fake-host/return/${channel}`, {method: 'PUT'})
 
         // Wait 5 seconds before retrying
         await sleep(5)

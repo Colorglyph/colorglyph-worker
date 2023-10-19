@@ -14,7 +14,7 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
             console.log(res.status)
 
             // return the channel
-            ctx.waitUntil(stub.fetch(`http://fake-host/return/${body.channel}`, {method: 'PUT'}))
+            await stub.fetch(`http://fake-host/return/${body.channel}`, {method: 'PUT'})
 
             // update job progress
             const id = env.MINT_FACTORY.idFromString(body.id)
@@ -37,7 +37,7 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
             break;
         case 'FAILED':
             // return the channel
-            ctx.waitUntil(stub.fetch(`http://fake-host/return/${body.channel}`, {method: 'PUT'}))
+            await stub.fetch(`http://fake-host/return/${body.channel}`, {method: 'PUT'})
 
             // TEMP while we wait for `soroban-client` -> `server.getTransaction` -> `FAILED` to send more complete data
             const res_string = await server._getTransaction(hash)
