@@ -196,25 +196,6 @@ export class MintFactory {
 
         return text(this.id.toString())
     }
-    async flushAll(req?: Request) {
-        // TODO be a little smarter before flushing everything
-        // if there are pending tasks fail them gracefully. e.g. don't lose channel accounts
-        // hmm interestingly too it's possible tasks may be queued which will bring this DO back to life which would be very bad
-        // we likely need a failsafe way for all requests to know if the DO is dead or not
-
-        await this.storage.sync()
-        await this.storage.deleteAlarm()
-        await this.storage.deleteAll()
-
-        this.state.blockConcurrencyWhile(async () => {
-            await this.storage.sync()
-            await this.storage.deleteAlarm()
-            await this.storage.deleteAll()
-        })
-
-        if (req)
-            return status(204)
-    }
     async markProgress(req: Request) {
         const { mintJob: body, returnValueXDR }: {
             mintJob: MintJob,
@@ -234,6 +215,27 @@ export class MintFactory {
             default:
                 throw new StatusError(404, 'Type not found')
         }
+
+        return status(204)
+    }
+    async flushAll(req?: Request) {
+        // TODO be a little smarter before flushing everything
+        // if there are pending tasks fail them gracefully. e.g. don't lose channel accounts
+        // hmm interestingly too it's possible tasks may be queued which will bring this DO back to life which would be very bad
+        // we likely need a failsafe way for all requests to know if the DO is dead or not
+
+        await this.storage.sync()
+        await this.storage.deleteAlarm()
+        await this.storage.deleteAll()
+
+        this.state.blockConcurrencyWhile(async () => {
+            await this.storage.sync()
+            await this.storage.deleteAlarm()
+            await this.storage.deleteAll()
+        })
+
+        if (req)
+            return status(204)
     }
 
     async mineProgress() {
