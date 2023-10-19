@@ -1,7 +1,8 @@
 import { SorobanRpc } from "soroban-client"
-import { server, sleep } from "./common"
+import { server } from "./common"
+import { StatusError } from "itty-router"
 
-export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionContext) {
+export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionContext): Promise<boolean> {
     const id = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1')
     const stub = env.CHANNEL_ACCOUNT.get(id)
 
@@ -14,7 +15,7 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
         res = await server.getTransaction(hash)
     } catch {
         message.retry()
-        return
+        return true
     }
 
     switch (res.status) {
@@ -40,15 +41,15 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
                 
                 // if the batch fails further down we don't want to retry this message
                 message.ack()
+                return false
             } catch {
                 message.retry()
+                return true
             }
-            break;
         case 'NOT_FOUND':
             console.log(res.status, hash)
-            await sleep(5) // wait 5 seconds and retry
             message.retry()
-            break;
+            return true
         case 'FAILED':
             try {
                 // return the channel
@@ -74,9 +75,12 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
 
                 // this was a failure but not one we want to retry on unless an `await` failed
                 message.ack()
+                return false
             } catch {
                 message.retry()
+                return true
             }
-            break;
+        default:
+            throw new StatusError(404, `Status not found`)
     }
 }

@@ -2,6 +2,7 @@ import { StatusError } from "itty-router"
 import { sendTx } from "./send_tx"
 import { getTx } from "./get_tx"
 import { channelProcess } from "./channel_process"
+import { sleep } from "./common"
 
 // TODO I actually think we should move the mint-queue stuff into a single tx-queue
 // I don't actually think it's neccessary to have two queues
@@ -14,9 +15,16 @@ export async function processQueue(batch: MessageBatch<any>, env: Env, ctx: Exec
             break;
 
         case 'colorglyph-tx-get':
+            let retry = false
+
             for (const message of batch.messages) {
-                await getTx(message, env, ctx)   
+                retry = await getTx(message, env, ctx) || retry
             }
+
+            // if there's a retry wait 5 seconds first
+            if (retry)
+                await sleep(5)
+
             break;
 
         default:

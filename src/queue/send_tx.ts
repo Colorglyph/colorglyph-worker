@@ -37,6 +37,8 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
             case 'mint':
                 operation = await mintOp(body, env)
                 break;
+            default:
+                throw new StatusError(404, `Type not found`)
         }
 
         const source = await server.getAccount(pubkey)
