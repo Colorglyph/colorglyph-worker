@@ -70,7 +70,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                 })
 
                 break;
-            default: // DUPLICATE | TRY_AGAIN_LATER | ERROR
+            default: 
                 console.log(subTx)
 
                 // save the error
@@ -81,13 +81,17 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
                 await env.ERRORS.put(body.id, data)
 
-                // this will ensure a retry
-                throw new StatusError(400, subTx.status)
+                if (subTx.status !== 'DUPLICATE') {
+                    // this will ensure a retry
+                    // we throw vs `message.retry()` because we want to return the channel account
+                    throw new StatusError(400, subTx.status)
+                }
         }
     } catch (err) {
         console.error(err)
 
         // TODO save the error?
+        // maybe in Sentry as this won't be Stellar/Soroban specific
 
         // return the channel account
         if (channel)

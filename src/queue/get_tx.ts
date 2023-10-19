@@ -31,7 +31,7 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
 
             break;
         case 'NOT_FOUND':
-            console.log(res)
+            console.log(res.status)
             await sleep(5) // wait 5 seconds and retry
             message.retry()
             break;
