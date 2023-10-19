@@ -8,9 +8,8 @@ import {
     StatusError,
     text,
 } from 'itty-router'
-import { Account, Keypair, Operation, TimeoutInfinite, Transaction, TransactionBuilder } from 'stellar-base'
+import { Keypair } from 'soroban-client'
 import { fetcher } from 'itty-fetcher'
-import { networkPassphrase } from '../queue/common'
 
 const horizon = fetcher({ base: 'https://horizon-futurenet.stellar.org' })
 
@@ -29,12 +28,6 @@ export class ChannelAccount {
     id: DurableObjectId
     router: RouterType
     available_channels: string[]
-    busy_channels: string[]
-    create_channels: string[]
-    mergeable_channels: string[]
-    ocean_kp: Keypair
-    creating: boolean
-    merging: boolean
 
     constructor(state: DurableObjectState, env: Env) {
         this.id = state.id
@@ -43,24 +36,16 @@ export class ChannelAccount {
         this.state = state
         this.router = Router()
         this.available_channels = []
-        this.busy_channels = []
-        this.create_channels = []
-        this.mergeable_channels = []
-        this.ocean_kp = Keypair.fromSecret('SAJR6ISVN7C5AP6ICU7NWP2RZUSSCIG3FMPD66WJWUA23REZGH66C4TE')
-        this.creating = false
-        this.merging = false
 
         this.router
             .get('/debug', this.debug.bind(this))
-            .delete('/toss/:type/:secret', this.toss.bind(this))
+            .delete('/:type/:secret', this.removeChannel.bind(this))
             .get('/take', this.takeChannel.bind(this))
-            .get('/return/:secret', this.returnChannel.bind(this))
+            .put('/return/:secret', this.returnChannel.bind(this))
             .all('*', () => error(404))
 
         state.blockConcurrencyWhile(async () => {
             this.available_channels = await this.storage.get('available') || []
-            this.busy_channels = await this.storage.get('busy') || []
-            this.mergeable_channels = await this.storage.get('mergeable') || []
         })
     }
     fetch(req: Request, ...extra: any[]) {
@@ -75,32 +60,21 @@ export class ChannelAccount {
 
     async debug(req: IRequestStrict) {
         const available = await this.storage.get('available')
-        const busy = await this.storage.get('busy')
-        const mergeable = await this.storage.get('mergeable')
 
         return json({
             id: this.id.toString(),
-            pubkey: this.ocean_kp.publicKey(),
             available,
-            busy,
-            mergeable
         })
     }
-    async toss(req: IRequestStrict) {
+    async removeChannel(req: IRequestStrict) {
         let channel_array: string[]
 
         switch (req.params.type) {
             case 'available':
                 channel_array = this.available_channels
                 break;
-            case 'busy':
-                channel_array = this.busy_channels
-                break;
-            case 'mergeable':
-                channel_array = this.mergeable_channels
-                break;
             default:
-                throw new StatusError(400, 'Invalid type')
+                throw new StatusError(404, 'Type not found')
         }
 
         const index = channel_array.findIndex((channel) => channel === req.params.secret)
@@ -115,177 +89,44 @@ export class ChannelAccount {
         return status(204)
     }
     async takeChannel(req: IRequestStrict) {
-        const secret = this.available_channels.shift()
-
-        if (!secret) {
-            this.create_channels.push(Keypair.random().secret())
-            this.createChannels() // trigger the creation of new channels but async
+        if (!this.available_channels.length) {
+            await this.env.CHANNEL_PROCESS.send({
+                type: 'create',
+                channel: Keypair.random().secret()
+            })
             throw new StatusError(400, 'No channels available')
         }
 
-        try {
-            await this.storage.put('available', this.available_channels)
+        let channel: string
 
-            const pubkey = Keypair.fromSecret(secret).publicKey()
+        // Loop over all available channels until we find one with sufficient balance to use
+        while (this.available_channels.length) {
+            channel = this.available_channels.shift()!
+            const pubkey = Keypair.fromSecret(channel).publicKey()
+
             const res: any = await horizon.get(`/accounts/${pubkey}`)
             const { balance } = res.balances.find(({ asset_type }: any) => asset_type === 'native')
 
-            if (Number(balance) < 2)// if we have < {x} XLM we shouldn't use this channel account // TODO probably should be a bit more than 2 XLM
-                throw new StatusError(400, `Insufficient channel funds: ${balance}`)
-
-            this.busy_channels = [...this.busy_channels, secret]
-            await this.storage.put('busy', this.busy_channels)
-
-            return text(secret)
-        } catch(err) {
-            this.mergeable_channels.push(secret)
-            await this.storage.put('mergeable', this.mergeable_channels)
-            this.mergeChannels() // trigger the merging of channels but async
-            throw err
+            if (Number(balance) < 2) // if we have < {x} XLM we shouldn't use this channel account // TODO probably should be a bit more than 2 XLM
+                await this.env.CHANNEL_PROCESS.send({
+                    type: 'merge',
+                    channel
+                })
+            else
+                return text(channel)
         }
+
+        // All available channels were low on balance so we're back to needing to create
+        await this.env.CHANNEL_PROCESS.send({
+            type: 'create',
+            channel: Keypair.random().secret()
+        })
+        throw new StatusError(400, 'No channels available')
     }
     async returnChannel(req: IRequestStrict) {
-        const secret = req.params.secret
-        const index = this.busy_channels.findIndex((channel) => channel === secret)
-
-        // TODO If we error here we should probably still do something with this secret so we don't throw a funded account 
-        if (index === -1)
-            throw new StatusError(400, 'Channel not busy')
-
-        this.busy_channels.splice(index, 1)
-        await this.storage.put('busy', this.busy_channels)
-
-        this.available_channels = [...this.available_channels, secret]
+        this.available_channels.push(req.params.secret)
         await this.storage.put('available', this.available_channels)
 
         return status(204)
-    }
-
-    // TODO there's a lot of repeated code between these two functions. We should probably refactor this to be more DRY
-
-    async createChannels() {
-        try {
-            // Only one create channels tx at a time, otherwise we hit sequence number issues
-            if (
-                this.creating
-                || this.merging
-            ) return
-
-            this.creating = true
-
-            const ocean_pubkey = this.ocean_kp.publicKey()
-
-            const res: any = await horizon.get(`/accounts/${ocean_pubkey}`)
-            const source = new Account(ocean_pubkey, res.sequence)
-
-            let transaction: TransactionBuilder | Transaction = new TransactionBuilder(source, {
-                fee: (10_000_000).toString(),
-                networkPassphrase,
-            })
-
-            // Grab up to 100 new channels
-            const channels = this.create_channels.splice(0, 100)
-
-            // Create the channel accounts
-            for (const channel of channels) {
-                transaction.addOperation(Operation.createAccount({
-                    destination: Keypair.fromSecret(channel).publicKey(),
-                    startingBalance: '10',
-                }))
-            }
-
-            transaction = transaction
-                .setTimeout(TimeoutInfinite)
-                .build()
-
-            transaction.sign(this.ocean_kp)
-
-            const tx = new FormData()
-            tx.append('tx', transaction.toXDR())
-
-            // TODO if the DO shuts down during submission we could create channels that never get saved
-            // we should probably go ahead and add these to the available channels list before we submit the tx
-            // and then in case of failure we just remove them again
-            await horizon.post('/transactions', tx)
-                .then((res) => console.log('created', res))
-
-            // If tx submission was successful add these channels to our available channels list
-            this.available_channels.push(...channels)
-
-            this.creating = false
-
-            // If we have more to create still then go ahead and create them
-            if (this.create_channels.length)
-                this.createChannels()
-        } catch (err) {
-            console.error(err)
-            this.creating = false
-        }
-    }
-    async mergeChannels() {
-        try {
-            // Only one merge channels tx at a time, otherwise we hit sequence number issues
-            if (
-                this.merging
-                || this.creating
-            ) return
-
-            this.merging = true
-
-            const ocean_pubkey = this.ocean_kp.publicKey()
-
-            const res: any = await horizon.get(`/accounts/${ocean_pubkey}`)
-            const source = new Account(ocean_pubkey, res.sequence)
-
-            let transaction: TransactionBuilder | Transaction = new TransactionBuilder(source, {
-                fee: (10_000_000).toString(),
-                networkPassphrase,
-            })
-
-            // Grab up to 10 new channels (only 10 because we have to sign for all of them)
-            const channels = this.mergeable_channels.splice(0, 10)
-            await this.storage.put('mergeable', this.mergeable_channels)
-
-            // Merge the channel accounts
-            for (const channel of channels) {
-                transaction.addOperation(Operation.accountMerge({
-                    destination: ocean_pubkey,
-                    source: Keypair.fromSecret(channel).publicKey(),
-                }))
-            }
-
-            transaction = transaction
-                .setTimeout(TimeoutInfinite)
-                .build()
-
-            for (const channel of channels) {
-                transaction.sign(Keypair.fromSecret(channel))
-            }
-
-            transaction.sign(this.ocean_kp)
-
-            const tx = new FormData()
-            tx.append('tx', transaction.toXDR())
-
-            try {
-                // TODO in case of DO shutdown in the middle of this submission the merged accounts won't be removed
-                // likely fine but we should lookup accounts before we try and merge them and if they're 404 don't add them to the tx
-                await horizon.post('/transactions', tx)
-                    .then((res) => console.log('merged', res))
-
-                this.merging = false
-
-                // If we have more to merge still then go ahead and merge them
-                if (this.mergeable_channels.length)
-                    this.mergeChannels()
-            } catch (err) {
-                console.error(err)
-                this.mergeable_channels.push(...channels) // put the channels back in the queue
-                await this.storage.put('mergeable', this.mergeable_channels)
-            }
-        } catch (err) {
-            console.error(err)
-            this.merging = false
-        }
     }
 }

@@ -14,7 +14,8 @@ export async function mineOp(message: Message<MintJob>, env: Env) {
     const mineMap = new Map((body.palette as [number, number][]).map(([color, amount]) => [color, amount]))
 
     const args = Colorglyph.spec.funcArgsToScVals('colors_mine', {
-        miner: pubkey,
+        source: pubkey,
+        miner: undefined,
         to: undefined,
         colors: new Map(sortMapKeys(mineMap))
     })

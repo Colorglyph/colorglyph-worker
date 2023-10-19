@@ -38,19 +38,38 @@ tag = "v3"
 deleted_classes = ["TestDo"]
 
 [[queues.producers]]
+binding = "CHANNEL_PROCESS"
+queue = "colorglyph-channel-process"
+
+[[queues.producers]]
 binding = "TX_SEND"
 queue = "colorglyph-tx-send"
+
+[[queues.producers]]
+binding = "TX_GET"
+queue = "colorglyph-tx-get"
+
+[[queues.consumers]]
+queue = "colorglyph-channel-process"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 2
+max_concurrency = 1
+dead_letter_queue = "colorglyph-channel-process-dlq"
+
+[[queues.consumers]]
+queue = "colorglyph-channel-process-dlq"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 6
+max_concurrency = 1
 
 [[queues.consumers]]
 queue = "colorglyph-tx-send"
 max_batch_size = 1
 max_batch_timeout = 5
-max_retries = 12
+max_retries = 6
 max_concurrency = 1
-
-[[queues.producers]]
-binding = "TX_GET"
-queue = "colorglyph-tx-get"
 
 [[queues.consumers]]
 queue = "colorglyph-tx-get"

@@ -1,6 +1,7 @@
 interface Env {
-    TX_SEND: Queue
-    TX_GET: Queue
+    CHANNEL_PROCESS: Queue<ChannelJob>
+    TX_SEND: Queue<MintJob>
+    TX_GET: Queue<MintJob>
     CHANNEL_ACCOUNT: DurableObjectNamespace
     MINT_FACTORY: DurableObjectNamespace
     IMAGES: R2Bucket
@@ -22,4 +23,9 @@ interface MintJob {
     channel?: string
     width?: number
     hash?: string
+}
+
+interface ChannelJob {
+    type: 'create' | 'merge',
+    channel: string
 }

@@ -92,7 +92,7 @@ function parseError(message: string): Err | undefined {
 export const networks = {
     futurenet: {
         networkPassphrase: "Test SDF Future Network ; October 2022",
-        contractId: "CCBL4VO5IRQHL6F2ALXHBYQCSBE52J6O6RXS4IRUUQZ5MOMR4QPVJ2LQ",
+        contractId: "CBZGCR4EQYDRNL6XQVWOGDKBYQSAKG2DWKJU6LUBE3UIGT6I6LYRX42A",
     }
 } as const
 
@@ -128,7 +128,7 @@ export class Contract {
     constructor(public readonly options: ClassOptions) {
         this.spec = new ContractSpec([
             "AAAAAAAAAAAAAAAKaW5pdGlhbGl6ZQAAAAAAAgAAAAAAAAANdG9rZW5fYWRkcmVzcwAAAAAAABMAAAAAAAAAC2ZlZV9hZGRyZXNzAAAAABMAAAAA",
-        "AAAAAAAAAAAAAAALY29sb3JzX21pbmUAAAAAAwAAAAAAAAAFbWluZXIAAAAAAAATAAAAAAAAAAJ0bwAAAAAD6AAAABMAAAAAAAAABmNvbG9ycwAAAAAD7AAAAAQAAAAEAAAAAA==",
+        "AAAAAAAAAAAAAAALY29sb3JzX21pbmUAAAAABAAAAAAAAAAGc291cmNlAAAAAAATAAAAAAAAAAVtaW5lcgAAAAAAA+gAAAATAAAAAAAAAAJ0bwAAAAAD6AAAABMAAAAAAAAABmNvbG9ycwAAAAAD7AAAAAQAAAAEAAAAAA==",
         "AAAAAAAAAAAAAAAPY29sb3JzX3RyYW5zZmVyAAAAAAMAAAAAAAAABGZyb20AAAATAAAAAAAAAAJ0bwAAAAAAEwAAAAAAAAAGY29sb3JzAAAAAAPqAAAD7QAAAAMAAAATAAAABAAAAAQAAAAA",
         "AAAAAAAAAAAAAAANY29sb3JfYmFsYW5jZQAAAAAAAAMAAAAAAAAABW93bmVyAAAAAAAAEwAAAAAAAAAFbWluZXIAAAAAAAPoAAAAEwAAAAAAAAAFY29sb3IAAAAAAAAEAAAAAQAAAAQ=",
         "AAAAAAAAAAAAAAAKZ2x5cGhfbWludAAAAAAABAAAAAAAAAAGbWludGVyAAAAAAATAAAAAAAAAAJ0bwAAAAAD6AAAABMAAAAAAAAABmNvbG9ycwAAAAAD7AAAABMAAAPsAAAABAAAA+oAAAAEAAAAAAAAAAV3aWR0aAAAAAAAA+gAAAAEAAAAAQAAA+gAAAPuAAAAIA==",
@@ -175,7 +175,7 @@ export class Contract {
     }
 
 
-    colorsMine = async <R extends ResponseTypes = undefined>({miner, to, colors}: {miner: string, to: Option<string>, colors: Map<u32, u32>}, options: {
+    colorsMine = async <R extends ResponseTypes = undefined>({source, miner, to, colors}: {source: string, miner: Option<string>, to: Option<string>, colors: Map<u32, u32>}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -195,7 +195,7 @@ export class Contract {
     } = {}) => {
                     return await invoke({
             method: 'colors_mine',
-            args: this.spec.funcArgsToScVals("colors_mine", {miner: new Address(miner), to, colors}),
+            args: this.spec.funcArgsToScVals("colors_mine", {source: new Address(source), miner, to, colors}),
             ...options,
             ...this.options,
             parseResultXdr: () => {},

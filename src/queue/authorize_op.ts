@@ -47,10 +47,7 @@ export async function authorizeOperation(body: MintJob, operation: xdr.Operation
 
     const operationAuthorized = Operation.invokeHostFunction({
         func: operation.body().invokeHostFunctionOp().hostFunction(),
-        auth: [
-            // authEntry
-            xdr.SorobanAuthorizationEntry.fromXDR(authEntry.toXDR()) // Needed as long as we're mixing XDR from `stellar-base` and `soroban-client`
-        ]
+        auth: [ authEntry ]
     })
 
     return operationAuthorized

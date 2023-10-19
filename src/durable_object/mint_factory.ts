@@ -102,11 +102,27 @@ export class MintFactory {
         // If we do end up passing along secrets though we don't really need to use channel accounts, we can just continue to use the same pubkey
         // Or actually maybe channel accounts are still good as it allows us to spread the mint for a single account across many channel accounts making the mint faster 🧠
 
+        // TODO switch to using a two account mint
+        // one account for the progressive mint account and the other for the final destination address
+        // the one is a secret key and the other is a public key
+        // this may require the ability to set the miner address separate from the signing account paying the mining fee
+        // there's an address that pays the mining fee, there's an address that is the miner who will recieve royalties, and there's the address that receives the final minted glyph
+
+        // this is the destination for the glyph and the miner for the colors
+        // this is the address that pays the mining fee
+        // this is the address that receives the colors and must sign for the minting
+        // this is the address that will serve for the progressive minting
+        
         const body = await req.json() as MintRequest || {}
         const sanitizedPaletteArray: [number, number][][] = []
 
         // Precalc the hash
         const hash = await getGlyphHash(body.palette, body.width)
+
+        // TODO lookup if this hash already exists
+        // if it does see if it's scraped
+        // if it is re-mint it
+        // if it's not, fail this request
 
         let map = new Map()
 
@@ -176,7 +192,6 @@ export class MintFactory {
             // TODO this is big bad btw, would result in an incompletable mint
             // Thankfully because we save how much work we _should_ be doing we'll never attempt a full mint of an incomplete partial mint
             console.log(errors)
-            throw new StatusError(400, 'Failed to queue mine jobs')
         }
 
         return text(this.id.toString())
@@ -279,7 +294,7 @@ export class MintFactory {
             }))
 
             // Kick off the first mint job
-            const mintJob = mintJobs.shift()
+            const mintJob = mintJobs.shift()!
 
             await this.storage.put('mint_jobs', mintJobs)
             await this.env.TX_SEND.send(mintJob)

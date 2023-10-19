@@ -23,9 +23,6 @@ dependencies:
   soroban-client:
     specifier: file:./ext/js-soroban-client-1.0.0-beta.3
     version: file:ext/js-soroban-client-1.0.0-beta.3
-  stellar-base:
-    specifier: github:stellar/js-stellar-base
-    version: github.com/stellar/js-stellar-base/c70ea241647db6e9d31d2f9678de308a185bae27
 
 devDependencies:
   '@cloudflare/workers-types':
@@ -653,7 +650,7 @@ packages:
       glob-to-regexp: 0.4.1
       source-map-support: 0.5.21
       stoppable: 1.1.0
-      undici: 5.26.3
+      undici: 5.26.4
       workerd: 1.20231016.0
       ws: 8.14.2
       youch: 3.3.2
@@ -839,8 +836,8 @@ packages:
     resolution: {integrity: sha512-Ga1jfYwRn7+cP9v8auvEXN1rX3sWqlayd4HP7OKk4mZWylEmu3KzXDUGrQUN6Ol7qo1gPvB2e5gX6udnyEPgdA==}
     dev: true
 
-  /undici@5.26.3:
-    resolution: {integrity: sha512-H7n2zmKEWgOllKkIUkLvFmsJQj062lSm3uA4EYApG8gLuiOM0/go9bIoC3HVaSnfg4xunowDE2i9p8drkXuvDw==}
+  /undici@5.26.4:
+    resolution: {integrity: sha512-OG+QOf0fTLtazL9P9X7yqWxQ+Z0395Wk6DSkyTxtaq3wQEjIroVe7Y4asCX/vcCxYpNGMnwz8F0qbRYUoaQVMw==}
     engines: {node: '>=14.0'}
     dependencies:
       '@fastify/busboy': 2.0.0
@@ -940,21 +937,4 @@ packages:
       urijs: 1.19.11
     transitivePeerDependencies:
       - debug
-    dev: false
-
-  github.com/stellar/js-stellar-base/c70ea241647db6e9d31d2f9678de308a185bae27:
-    resolution: {tarball: https://codeload.github.com/stellar/js-stellar-base/tar.gz/c70ea241647db6e9d31d2f9678de308a185bae27}
-    name: stellar-base
-    version: 10.0.0-beta.3
-    prepare: true
-    requiresBuild: true
-    dependencies:
-      base32.js: 0.1.0
-      bignumber.js: 9.1.2
-      buffer: 6.0.3
-      js-xdr: 3.0.0
-      sha.js: 2.4.11
-      tweetnacl: 1.0.3
-    optionalDependencies:
-      sodium-native: 4.0.4
     dev: false

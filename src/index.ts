@@ -28,7 +28,7 @@ router
 	.get('/glyphs', glyphs)
 	.get('/image/:hash', image)
 	.get('/debug', debug)
-	.delete('/toss/:type/:secret', debug)
+	.delete('/:type/:secret', debug)
 	.delete('/:id', flush)
 	.all('*', () => error(404))
 

@@ -162,7 +162,8 @@ export async function invoke<R extends ResponseTypes, T = string>({
   if ("returnValue" in raw) return parse(raw.returnValue!);
 
   // otherwise, it returned the result of `sendTransaction`
-  if ("errorResultXdr" in raw) return parse(raw.errorResultXdr!);
+  // @ts-ignore
+  if ("errorResultXdr" in raw) return parse(raw.errorResultXdr);
 
   // if neither of these are present, something went wrong
   console.error("Don't know how to parse result! Returning full RPC response.");
