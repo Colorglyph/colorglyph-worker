@@ -103,6 +103,9 @@ export class ChannelAccount {
         while (this.available_channels.length) {
             channel = this.available_channels.shift()!
             await this.storage.put('available', this.available_channels)
+
+            // TODO if the DO dies before `merge` or `return` we lose the channel
+
             const pubkey = Keypair.fromSecret(channel).publicKey()
 
             const res: any = await horizon.get(`/accounts/${pubkey}`)

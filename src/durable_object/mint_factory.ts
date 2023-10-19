@@ -240,7 +240,6 @@ export class MintFactory {
 
     async mineProgress() {
         const mineTotal: number = await this.storage.get('mine_total') || 0
-
         let mineProgress: number = await this.storage.get('mine_progress') || 0
 
         mineProgress++
@@ -299,6 +298,9 @@ export class MintFactory {
             const mintJob = mintJobs.shift()!
 
             await this.storage.put('mint_jobs', mintJobs)
+
+            // TODO if the DO dies right here we lose the mintJob
+
             await this.env.TX_SEND.send(mintJob)
         }
     }
@@ -310,6 +312,8 @@ export class MintFactory {
         const mintJob = mintJobs.shift()
 
         await this.storage.put('mint_jobs', mintJobs)
+
+        // TODO if the DO dies right here we lose the mintJob
 
         if (mintJob) {
             await this.storage.put('mint_progress', mintTotal - mintJobs.length)
