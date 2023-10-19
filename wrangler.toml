@@ -58,12 +58,9 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 12
 dead_letter_queue = "colorglyph-tx-get-dlq"
-# max_concurrency = 20
 
 [[queues.consumers]]
 queue = "colorglyph-tx-get-dlq"
 max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 12
-
-# TODO Stand up a dlqs for logging failed jobs

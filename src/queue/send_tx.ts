@@ -3,6 +3,7 @@ import { server, networkPassphrase, sleep } from './common'
 import { getRandomNumber } from '../utils'
 import { mineOp } from './mine_op'
 import { mintOp } from './mint_op'
+import { StatusError } from 'itty-router'
 
 export async function sendTx(message: Message<MintJob>, env: Env, ctx: ExecutionContext) {
     const id = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1') // Hard coded because we need to resolve to the same DO app wide
@@ -79,9 +80,14 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                 const data = encoder.encode(`${await existing?.text()}\n\n${subTx.hash}\n\n${subTx.errorResult?.toXDR('base64')}`)
 
                 await env.ERRORS.put(body.id, data)
+
+                // this will ensure a retry
+                throw new StatusError(400, subTx.status)
         }
     } catch (err) {
         console.error(err)
+
+        // TODO save the error?
 
         // return the channel account
         if (channel)
