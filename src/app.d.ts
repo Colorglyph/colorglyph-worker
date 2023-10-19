@@ -1,6 +1,6 @@
 interface Env {
     TX_QUEUE: Queue
-    MINT_QUEUE: Queue
+    // MINT_QUEUE: Queue
     CHANNEL_ACCOUNT: DurableObjectNamespace
     MINT_FACTORY: DurableObjectNamespace
     IMAGES: R2Bucket

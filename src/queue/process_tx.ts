@@ -1,7 +1,9 @@
-import { Keypair, TransactionBuilder } from 'soroban-client'
+import { xdr, Keypair, Operation, TransactionBuilder } from 'soroban-client'
 import { server, networkPassphrase } from './common'
 import { StatusError } from 'itty-router'
 import { getRandomNumber } from '../utils'
+import { processMine } from './process_mine'
+import { processMint } from './process_mint'
 
 export async function processTx(message: Message<MintJob>, env: Env) {
     const hash = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1') // Hard coded because we need to resolve to the same DO app wide
@@ -26,18 +28,33 @@ export async function processTx(message: Message<MintJob>, env: Env) {
         const kp = Keypair.fromSecret(secret)
         const pubkey = kp.publicKey()
 
-        const tx = TransactionBuilder.fromXDR(body.tx!, networkPassphrase)
+        let operation: xdr.Operation<Operation.InvokeHostFunction>
+
+        switch (body.type) {
+            case 'mine':
+                operation = await processMine(message, env)
+                break;
+            case 'mint':
+                operation = await processMint(message, env)
+                break;
+        }
+
+        // const tx = TransactionBuilder.fromXDR(body.tx!, networkPassphrase)
 
         const source = await server.getAccount(pubkey)
         const preTx = new TransactionBuilder(source, {
             fee: (getRandomNumber(1_000_000, 10_000_000)).toString(), // TODO we should be smarter about this (using random so at least we have some variance)
             networkPassphrase,
         })
-            .addOperation(tx.toEnvelope().v1().tx().operations()[0])
+            .addOperation(operation)
             .setTimeout(30) // 30 seconds. Just needs to be less than the NOT_FOUND retry limit so we never double send
             .build()
 
+        // TEMP we likely don't need to simulate again but currently there are cases with multiauth where the initial simulation doesn't account for the authorized operation
         const readyTx = await server.prepareTransaction(preTx)
+
+        // TODO catch error here and log it to R2 as this involves a simulation
+        // rare to catch here due to the fact we're simulating prior to this. but still
 
         readyTx.sign(kp)
 

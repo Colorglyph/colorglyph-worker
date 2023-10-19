@@ -70,8 +70,6 @@ export class MintFactory {
         state.blockConcurrencyWhile(async () => {
             this.pending = await this.storage.get('pending') || []
         })
-
-        // TODO we should probably save every job to the KV for review and cleanup in a cron job later
     }
     fetch(req: Request, ...extra: any[]) {
         return this.router
@@ -135,7 +133,8 @@ export class MintFactory {
                             // NOTE there is a wild chance that even after {x} retries the tx might eventually succeed causing a double mine
                             // We should probably check for the colors we're about to mine before mining them in the `process_mine`
                             // we can avoid this issue by including some better time limits on transaction submissions to be less than whenever this would fire
-                            await this.env.MINT_QUEUE.send(body)
+                            // await this.env.MINT_QUEUE.send(body)
+                            await this.env.TX_QUEUE.send(body)
 
                             // return the channel
                             await this.returnChannel(body.channel)
@@ -167,7 +166,7 @@ export class MintFactory {
 
                         // TODO there can be failures do to the resourcing in which case we should toss this hash but re-queue the tx
                         // we should be somewhat careful here though as this type of failure likely means funds were spent
-                        // await this.env.MINT_QUEUE.send(body) // TEMP. Bad idea!!
+                        // await this.env.TX_QUEUE.send(body) // TEMP. Bad idea!!
 
                         // return the channel
                         await this.returnChannel(body.channel)
@@ -286,7 +285,10 @@ export class MintFactory {
         }))
 
         const errors = await Promise
-            .allSettled(chunkArray(mineJobs, 100).map((mineJobsChunk) => this.env.MINT_QUEUE.sendBatch(mineJobsChunk)))
+            .allSettled(chunkArray(mineJobs, 100).map((mineJobsChunk) => 
+                // this.env.MINT_QUEUE.sendBatch(mineJobsChunk))
+                this.env.TX_QUEUE.sendBatch(mineJobsChunk))
+            )
             .then((res) => res.filter((res) => res.status === 'rejected'))
 
         if (errors.length) {
@@ -294,6 +296,8 @@ export class MintFactory {
             console.error(JSON.stringify(errors, null, 2))
             throw new StatusError(400, 'Failed to queue mine jobs')
         }
+
+        // TODO we should probably save every job to the KV for review and cleanup in a cron job later
 
         return text(this.id.toString())
     }
@@ -401,7 +405,8 @@ export class MintFactory {
             // Kick off the first mint job
             let [mintJob] = mintJobs.splice(0, 1)
 
-            await this.env.MINT_QUEUE.send(mintJob)
+            // await this.env.MINT_QUEUE.send(mintJob)
+            await this.env.TX_QUEUE.send(mintJob)
             await this.storage.put('mint_jobs', mintJobs)
             await this.storage.put('mint_total', sanitizedPaletteArray.length)
             await this.storage.put('mint_progress', 0)
@@ -419,7 +424,8 @@ export class MintFactory {
         let [mintJob] = mintJobs.splice(0, 1)
 
         if (mintJob) {
-            await this.env.MINT_QUEUE.send(mintJob)
+            // await this.env.MINT_QUEUE.send(mintJob)
+            await this.env.TX_QUEUE.send(mintJob)
             await this.storage.put('mint_jobs', mintJobs)
             await this.storage.put('mint_progress', mintProgress)
         }
@@ -436,7 +442,8 @@ export class MintFactory {
                 width: body.width,
             }
 
-            await this.env.MINT_QUEUE.send(mintJob)
+            // await this.env.MINT_QUEUE.send(mintJob)
+            await this.env.TX_QUEUE.send(mintJob)
             await this.storage.put('mint_progress', mintTotal)
         }
     }

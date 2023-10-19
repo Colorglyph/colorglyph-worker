@@ -48,15 +48,15 @@ max_batch_timeout = 5
 max_retries = 12
 max_concurrency = 1
 
-[[queues.producers]]
-binding = "MINT_QUEUE"
-queue = "colorglyph-mint-queue"
+# [[queues.producers]]
+# binding = "MINT_QUEUE"
+# queue = "colorglyph-mint-queue"
 
-[[queues.consumers]]
-queue = "colorglyph-mint-queue"
-max_batch_size = 1
-max_batch_timeout = 5
-max_retries = 6
-max_concurrency = 1
+# [[queues.consumers]]
+# queue = "colorglyph-mint-queue"
+# max_batch_size = 1
+# max_batch_timeout = 5
+# max_retries = 6
+# max_concurrency = 1
 
 # TODO Stand up a dlqs for logging failed jobs
