@@ -5,8 +5,7 @@ import { authorizeOperation } from './authorize_op'
 
 // TODO both this and processMint could likely be further dry'ed up
 
-export async function mineOp(message: Message<MintJob>, env: Env) {
-    const body = message.body
+export async function mineOp(body: MintJob, env: Env) {
     const kp = Keypair.fromSecret(body.secret)
     const pubkey = kp.publicKey()
     const { contract: Colorglyph } = new Contract(kp)

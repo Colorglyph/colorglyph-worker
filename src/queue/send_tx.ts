@@ -32,10 +32,10 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
         switch (body.type) {
             case 'mine':
-                operation = await mineOp(message, env)
+                operation = await mineOp(body, env)
                 break;
             case 'mint':
-                operation = await mintOp(message, env)
+                operation = await mintOp(body, env)
                 break;
         }
 

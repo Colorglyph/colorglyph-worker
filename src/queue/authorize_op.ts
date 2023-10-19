@@ -2,7 +2,12 @@ import { StatusError } from "itty-router"
 import { Account, Keypair, Operation, SorobanRpc, StrKey, TimeoutInfinite, TransactionBuilder, authorizeEntry, xdr } from "soroban-client"
 import { networkPassphrase, server } from "./common"
 
-export async function authorizeOperation(body: MintJob, operation: xdr.Operation<Operation.InvokeHostFunction>, kp: Keypair, env: Env) {
+export async function authorizeOperation(
+    body: MintJob, 
+    operation: xdr.Operation<Operation.InvokeHostFunction>, 
+    kp: Keypair, 
+    env: Env
+) {
     const source = new Account(StrKey.encodeEd25519PublicKey(Buffer.alloc(32)), '0') // Need to use a random source other than pubkey so the credientals are filled in the `authorizeEntry`
     const tx = new TransactionBuilder(source, {
         fee: '0',

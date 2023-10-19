@@ -19,7 +19,7 @@ interface MintJob {
     id: string
     type: 'mine' | 'mint'
     secret: string
-    palette: [number, number][] | [number, number[]][]
+    palette: [number, number][] | [number, number[]][] // ensure we keep this around in case we end up needing to re-queue at some point
     channel?: string
     width?: number
     hash?: string

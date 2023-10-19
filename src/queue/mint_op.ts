@@ -3,8 +3,7 @@ import { Contract, RawContract } from './common'
 import { sortMapKeys } from '../utils'
 import { authorizeOperation } from './authorize_op'
 
-export async function mintOp(message: Message<MintJob>, env: Env) {
-    const body = message.body
+export async function mintOp(body: MintJob, env: Env) {
     const kp = Keypair.fromSecret(body.secret)
     const pubkey = kp.publicKey()
     const { contract: Colorglyph } = new Contract(kp)
