@@ -23,9 +23,11 @@ import { paletteToBase64 } from '../utils/paletteToBase64'
 // I think a simple ping/healthcheck to the DO id would be sufficient?
 // Actually not that the alarm isn't tied to the class instantiation I'm not sure we're in trouble as I think alarms persist across restarts
 // If not though we still need a way to restart the alarm pending process loop
-
-// TODO need a robust plan for DO to be restarted at any point
+// need a robust plan for DO to be restarted at any point
 // I'm starting to think the only sure fire way to pull this off is to only really do mission critial work in queues vs in the DO itself
+// NOTE A durable object can die at any moment due to a code push
+// this causes all pending state to be lost and all pending requests to die
+// for alarms this means the alarm will exit somewhere in the middle and then magically retry itself with no ability to catch that exception
 
 // TODO seeing a MASSIVE number or requests and sub requests
 // need to trace out what's going on here
@@ -43,7 +45,7 @@ export class MintFactory {
     state: DurableObjectState
     router: RouterType
     pending: { hash: string, retry: number, body: MintJob }[]
-    channel_account_hash: DurableObjectId
+    channel_account_id: DurableObjectId
     complete: boolean
     ttl: number
 
@@ -54,7 +56,7 @@ export class MintFactory {
         this.state = state
         this.router = Router()
         this.pending = []
-        this.channel_account_hash = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1')
+        this.channel_account_id = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1')
         this.complete = false
         this.ttl = Date.now() + 3_600_000 // DO will survive for 1hr before dying the good death. Any mints taking longer than that won't complete
 
@@ -88,7 +90,7 @@ export class MintFactory {
 
         console.log(this.id.toString())
 
-        // TODO very concerned about eternal alarms
+        // NOTE very concerned about eternal alarms
         // we should probably set some reasonable lifespan at which point we gracefully destroy the DO and kill the alarm
         // for now let's hard code a 1hr max lifespan
 
@@ -471,7 +473,7 @@ export class MintFactory {
     async returnChannel(secret?: string) {
         return secret
             ? this.env.CHANNEL_ACCOUNT
-                .get(this.channel_account_hash)
+                .get(this.channel_account_id)
                 .fetch(`http://fake-host/return/${secret}`)
             : undefined
     }

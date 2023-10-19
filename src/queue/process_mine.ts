@@ -10,13 +10,12 @@ export async function processMine(message: Message<MintJob>, env: Env) {
     const pubkey = kp.publicKey()
     const { contract: Colorglyph } = new Contract(kp)
 
-    let colors = new Map((body.palette as [number, number][]).map(([color, amount]) => [color, amount]))
-    colors = sortMapKeys(colors)
+    const mineMap = new Map((body.palette as [number, number][]).map(([color, amount]) => [color, amount]))
 
     const args = Colorglyph.spec.funcArgsToScVals('colors_mine', {
         miner: pubkey,
         to: undefined,
-        colors: new Map(colors)
+        colors: new Map(sortMapKeys(mineMap))
     })
 
     const operation = RawContract.call(

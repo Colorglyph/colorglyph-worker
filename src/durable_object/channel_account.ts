@@ -15,7 +15,7 @@ import { networkPassphrase } from '../queue/common'
 const horizon = fetcher({ base: 'https://horizon-futurenet.stellar.org' })
 
 // TODO I'm not convinced we can't end up in a place where we have stuck busy channels that will never be returned to the pool
-// For example when a DO dies for things like CPU/MEM and the process never resolves and thus the busy channel is never returned
+// For example when a DO dies for things like CPU/MEM or even just a code push and the process never resolves and thus the busy channel is never returned
 
 // TODO We should place caps on channel arrays so these things don't grow unbounded somehow
 // They can be high but they should be capped

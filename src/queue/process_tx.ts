@@ -7,17 +7,15 @@ export async function processTx(message: Message<MintJob>, env: Env) {
     const hash = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1') // Hard coded because we need to resolve to the same DO app wide
     const stub = env.CHANNEL_ACCOUNT.get(hash)
 
-    let secret: string | undefined
+    let secret!: string
 
     try {
         const body = message.body
 
-        if (!body.tx)
-            throw new StatusError(400, 'Missing tx')
-
         // TODO everywhere we're using stub.fetch we don't have the nice error handling that fetcher gives us so we need to roll our own error handling. 
         // Keep in mind though there are instances where failure shouldn't kill the whole task. Think returning a channel that's not currently busy for whatever reason
-        await stub.fetch('http://fake-host/take')
+        await stub
+        .fetch('http://fake-host/take')
         .then(async (res) => {
             if (res.ok)
                 secret = await res.text()
@@ -25,10 +23,10 @@ export async function processTx(message: Message<MintJob>, env: Env) {
                 throw await res.json()
         })
 
-        const kp = Keypair.fromSecret(secret!)
+        const kp = Keypair.fromSecret(secret)
         const pubkey = kp.publicKey()
 
-        const tx = TransactionBuilder.fromXDR(body.tx, networkPassphrase)
+        const tx = TransactionBuilder.fromXDR(body.tx!, networkPassphrase)
 
         const source = await server.getAccount(pubkey)
         const preTx = new TransactionBuilder(source, {
@@ -50,10 +48,10 @@ export async function processTx(message: Message<MintJob>, env: Env) {
             case 'PENDING':
                 console.log(subTx)
 
-                const hash = env.MINT_FACTORY.idFromString(body.id)
+                const id = env.MINT_FACTORY.idFromString(body.id)
 
                 await env.MINT_FACTORY
-                    .get(hash)
+                    .get(id)
                     .fetch(`http://fake-host/${subTx.hash}`, {
                         method: 'PATCH',
                         body: JSON.stringify({
