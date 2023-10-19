@@ -104,7 +104,7 @@ export class MintFactory {
                 const index = this.pending.findIndex(({ hash: h }) => h === hash)
 
                 if (index === -1)
-                    throw new StatusError(400, 'Hash not found') // TODO idk if `StatusError` makes sense in the `alarm` here
+                    throw new StatusError(404, 'Hash not found') // TODO idk if `StatusError` makes sense in the `alarm` here
 
                 const res = await server.getTransaction(hash)
 
@@ -290,8 +290,9 @@ export class MintFactory {
             .then((res) => res.filter((res) => res.status === 'rejected'))
 
         if (errors.length) {
+            // TODO this is big bad btw, would result in an incompletable job
             console.error(JSON.stringify(errors, null, 2))
-            throw new StatusError(500, 'Failed to queue mine jobs')
+            throw new StatusError(400, 'Failed to queue mine jobs')
         }
 
         return text(this.id.toString())
@@ -357,10 +358,6 @@ export class MintFactory {
         // mining is done, move on to minting
         if (mineProgress >= mineTotal) {
             const body: any = await this.storage.get('body')
-
-            if (!body)
-                throw new StatusError(404, 'Job not found')
-
             const sanitizedPaletteArray: [number, number[]][][] = []
 
             let count = 0

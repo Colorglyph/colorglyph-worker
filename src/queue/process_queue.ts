@@ -28,11 +28,11 @@ export async function processQueue(batch: MessageBatch<MintJob>, env: Env) {
                     break;
 
                 default:
-                    throw new StatusError(400, `Unknown message: ${message.body.type}`)
+                    throw new StatusError(404, `Message type not found: ${message.body.type}`)
             }
             break;
 
         default:
-            throw new StatusError(400, `Unknown queue: ${batch.queue}`)
+            throw new StatusError(404, `Queue not found: ${batch.queue}`)
     }
 }
