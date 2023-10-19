@@ -15,7 +15,7 @@ export async function authorizeOperation(body: MintJob, operation: xdr.Operation
     const simTx = await server.simulateTransaction(tx)
 
     if (!SorobanRpc.isSimulationSuccess(simTx)) {
-        console.error(simTx)
+        console.log(simTx)
 
         // save the error
         const existing = await env.ERRORS.get(body.id)

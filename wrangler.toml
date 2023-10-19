@@ -38,25 +38,32 @@ tag = "v3"
 deleted_classes = ["TestDo"]
 
 [[queues.producers]]
-binding = "TX_QUEUE"
-queue = "colorglyph-tx-queue"
+binding = "TX_SEND"
+queue = "colorglyph-tx-send"
 
 [[queues.consumers]]
-queue = "colorglyph-tx-queue"
+queue = "colorglyph-tx-send"
 max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 12
 max_concurrency = 1
 
-# [[queues.producers]]
-# binding = "MINT_QUEUE"
-# queue = "colorglyph-mint-queue"
+[[queues.producers]]
+binding = "TX_GET"
+queue = "colorglyph-tx-get"
 
-# [[queues.consumers]]
-# queue = "colorglyph-mint-queue"
-# max_batch_size = 1
-# max_batch_timeout = 5
-# max_retries = 6
-# max_concurrency = 1
+[[queues.consumers]]
+queue = "colorglyph-tx-get"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 12
+dead_letter_queue = "colorglyph-tx-get-dlq"
+# max_concurrency = 20
+
+[[queues.consumers]]
+queue = "colorglyph-tx-get-dlq"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 12
 
 # TODO Stand up a dlqs for logging failed jobs

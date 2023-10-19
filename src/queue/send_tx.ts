@@ -1,15 +1,14 @@
 import { xdr, Keypair, Operation, TransactionBuilder } from 'soroban-client'
-import { server, networkPassphrase } from './common'
-import { StatusError } from 'itty-router'
+import { server, networkPassphrase, sleep } from './common'
 import { getRandomNumber } from '../utils'
-import { processMine } from './process_mine'
-import { processMint } from './process_mint'
+import { mineOp } from './mine_op'
+import { mintOp } from './mint_op'
 
-export async function processTx(message: Message<MintJob>, env: Env) {
-    const hash = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1') // Hard coded because we need to resolve to the same DO app wide
-    const stub = env.CHANNEL_ACCOUNT.get(hash)
+export async function sendTx(message: Message<MintJob>, env: Env, ctx: ExecutionContext) {
+    const id = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1') // Hard coded because we need to resolve to the same DO app wide
+    const stub = env.CHANNEL_ACCOUNT.get(id)
 
-    let secret!: string
+    let channel!: string
 
     try {
         const body = message.body
@@ -17,29 +16,27 @@ export async function processTx(message: Message<MintJob>, env: Env) {
         // TODO everywhere we're using stub.fetch we don't have the nice error handling that fetcher gives us so we need to roll our own error handling. 
         // Keep in mind though there are instances where failure shouldn't kill the whole task. Think returning a channel that's not currently busy for whatever reason
         await stub
-        .fetch('http://fake-host/take')
-        .then(async (res) => {
-            if (res.ok)
-                secret = await res.text()
-            else 
-                throw await res.json()
-        })
+            .fetch('http://fake-host/take')
+            .then(async (res) => {
+                if (res.ok)
+                    channel = await res.text()
+                else
+                    throw await res.json()
+            })
 
-        const kp = Keypair.fromSecret(secret)
+        const kp = Keypair.fromSecret(channel)
         const pubkey = kp.publicKey()
 
         let operation: xdr.Operation<Operation.InvokeHostFunction>
 
         switch (body.type) {
             case 'mine':
-                operation = await processMine(message, env)
+                operation = await mineOp(message, env)
                 break;
             case 'mint':
-                operation = await processMint(message, env)
+                operation = await mintOp(message, env)
                 break;
         }
-
-        // const tx = TransactionBuilder.fromXDR(body.tx!, networkPassphrase)
 
         const source = await server.getAccount(pubkey)
         const preTx = new TransactionBuilder(source, {
@@ -58,25 +55,19 @@ export async function processTx(message: Message<MintJob>, env: Env) {
 
         readyTx.sign(kp)
 
-        await new Promise((resolve) => setTimeout(resolve, 1000)) // Throttle TX_QUEUE to 1 tx per second
         const subTx = await server.sendTransaction(readyTx)
 
         switch (subTx.status) {
             case 'PENDING':
                 console.log(subTx)
 
-                const id = env.MINT_FACTORY.idFromString(body.id)
+                await sleep(1) // Throttle TX_SEND to 1 successfully sent tx per second
+                await env.TX_GET.send({
+                    ...body, // send along the `body` in case we need to re-queue later
+                    hash: subTx.hash,
+                    channel // send along the channel secret so we can return it to the pool later
+                })
 
-                await env.MINT_FACTORY
-                    .get(id)
-                    .fetch(`http://fake-host/${subTx.hash}`, {
-                        method: 'PATCH',
-                        body: JSON.stringify({
-                            ...body, // send along the `body` in case we need to re-queue later
-                            channel: secret // send along the channel secret so we can return it to the pool later
-                        })
-                    })
-                    
                 break;
             default: // DUPLICATE | TRY_AGAIN_LATER | ERROR
                 console.log(subTx)
@@ -85,23 +76,19 @@ export async function processTx(message: Message<MintJob>, env: Env) {
                 const existing = await env.ERRORS.get(body.id)
 
                 const encoder = new TextEncoder()
-                const data = encoder.encode(`${await existing?.text()}\n\n${subTx.errorResult?.toXDR('base64')}`)
+                const data = encoder.encode(`${await existing?.text()}\n\n${subTx.hash}\n\n${subTx.errorResult?.toXDR('base64')}`)
 
                 await env.ERRORS.put(body.id, data)
-
-                // TODO there's more work that needs to go into queuing up transactions that have error'ed for recoverable things like sequence number or insufficient fee vs things like the account missing or other unrecoverable issues
-
-                throw new StatusError(400, subTx.status)
         }
-    } catch(err) {
-        console.error(JSON.stringify(err, null, 2))
+    } catch (err) {
+        console.error(err)
 
         // return the channel account
-        if (secret)
-            await stub.fetch(`http://fake-host/return/${secret}`)
+        if (channel)
+            ctx.waitUntil(stub.fetch(`http://fake-host/return/${channel}`))
 
         // Wait 5 seconds before retrying
-        await new Promise((resolve) => setTimeout(resolve, 5000))
+        await sleep(5)
         message.retry()
     }
 }

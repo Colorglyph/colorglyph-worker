@@ -11,6 +11,10 @@ export const server = new Server(rpcUrl)
 
 export const RawContract = new SorobanClientContract(contractId)
 
+export function sleep(seconds: number) {
+    return new Promise((resolve) => setTimeout(resolve, seconds * 1000))
+}
+
 export class Wallet {
     kp: Keypair
 

@@ -6,7 +6,6 @@ const maxMintCount = 50
 
 import {
     error,
-    IRequestStrict,
     json,
     Router,
     RouterType,
@@ -14,8 +13,7 @@ import {
     StatusError,
     text,
 } from 'itty-router'
-import { server } from '../queue/common'
-import { SorobanRpc } from 'soroban-client'
+import { xdr } from 'soroban-client'
 import { chunkArray, getGlyphHash } from '../utils'
 import { paletteToBase64 } from '../utils/paletteToBase64'
 
@@ -44,10 +42,6 @@ export class MintFactory {
     storage: DurableObjectStorage
     state: DurableObjectState
     router: RouterType
-    pending: { hash: string, retry: number, body: MintJob }[]
-    channel_account_id: DurableObjectId
-    complete: boolean
-    ttl: number
 
     constructor(state: DurableObjectState, env: Env) {
         this.id = state.id
@@ -55,21 +49,13 @@ export class MintFactory {
         this.storage = state.storage
         this.state = state
         this.router = Router()
-        this.pending = []
-        this.channel_account_id = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1')
-        this.complete = false
-        this.ttl = Date.now() + 3_600_000 // DO will survive for 1hr before dying the good death. Any mints taking longer than that won't complete
 
         this.router
             .get('/', this.getJob.bind(this))
             .post('/', this.mintJob.bind(this))
-            .patch('/:hash', this.patchJob.bind(this))
+            .patch('/', this.markProgress.bind(this))
             .delete('/', this.flushAll.bind(this))
             .all('*', () => error(404))
-
-        state.blockConcurrencyWhile(async () => {
-            this.pending = await this.storage.get('pending') || []
-        })
     }
     fetch(req: Request, ...extra: any[]) {
         return this.router
@@ -79,112 +65,6 @@ export class MintFactory {
                 console.error(err)
                 return error(err)
             })
-    }
-    async alarm() {
-        if (
-            this.complete
-            || Date.now() > this.ttl
-        ) return
-
-        console.log(this.id.toString())
-
-        // NOTE very concerned about eternal alarms
-        // we should probably set some reasonable lifespan at which point we gracefully destroy the DO and kill the alarm
-        // for now let's hard code a 1hr max lifespan
-
-        // NOTE throwing in an alarm triggers a re-run up to six times, we should never throw an alarm then methinks
-        try {
-            // NOTE we use a for loop vs a Promise.all/allSettled in order to ensure sequential processing
-            // Not sure why but many and very bad things always happened when processing in parallel
-            
-            // TODO this could be a lot of pending hashes, we should cap this at some reasonable number
-            for (const { hash, retry, body } of this.pending) {
-                const index = this.pending.findIndex(({ hash: h }) => h === hash)
-
-                if (index === -1)
-                    throw new StatusError(404, 'Hash not found') // TODO idk if `StatusError` makes sense in the `alarm` here
-
-                const res = await server.getTransaction(hash)
-
-                switch (res.status) {
-                    case 'SUCCESS':
-                        console.log(res.status)
-
-                        // remove the hash from pending
-                        this.pending.splice(index, 1)
-
-                        // update job progress
-                        await this.markProgress(body, res)
-
-                        // return the channel
-                        await this.returnChannel(body.channel)
-
-                        break;
-                    case 'NOT_FOUND':
-                        console.log(retry, res)
-
-                        if (retry < 12) {
-                            this.pending[index].retry++
-                        } else {
-                            // remove the hash from pending
-                            this.pending.splice(index, 1)
-
-                            // re-queue the tx
-                            // NOTE there is a wild chance that even after {x} retries the tx might eventually succeed causing a double mine
-                            // We should probably check for the colors we're about to mine before mining them in the `process_mine`
-                            // we can avoid this issue by including some better time limits on transaction submissions to be less than whenever this would fire
-                            // await this.env.MINT_QUEUE.send(body)
-                            await this.env.TX_QUEUE.send(body)
-
-                            // return the channel
-                            await this.returnChannel(body.channel)
-                        }
-
-                        break;
-                    case 'FAILED':
-                        // remove the hash from pending
-                        this.pending.splice(index, 1)
-
-                        // TEMP while we wait for `soroban-client` -> `server.getTransaction` -> `FAILED` to send more complete data
-                        try {
-                            const res = await server._getTransaction(hash)
-                            .then((res) => JSON.stringify(res, null, 2))
-
-                            console.log(hash, res)
-                            
-                            // save the error
-                            const id = this.id.toString()
-                            const existing = await this.env.ERRORS.get(id)
-
-                            const encoder = new TextEncoder()
-                            const data = encoder.encode(`${await existing?.text()}\n\n${hash}\n\n${res}`)
-                            
-                            await this.env.ERRORS.put(id, data)
-                        } catch {
-                            console.log(hash, res)
-                        }
-
-                        // TODO there can be failures do to the resourcing in which case we should toss this hash but re-queue the tx
-                        // we should be somewhat careful here though as this type of failure likely means funds were spent
-                        // await this.env.TX_QUEUE.send(body) // TEMP. Bad idea!!
-
-                        // return the channel
-                        await this.returnChannel(body.channel)
-
-                        break;
-                }
-
-                await this.storage.put('pending', this.pending)
-            }
-        }
-
-        catch (err) {
-            console.error(JSON.stringify(err, null, 2))
-        }
-
-        finally {
-            await this.storage.setAlarm(Date.now() + 5000)
-        }
     }
 
     async getJob(req: Request) {
@@ -245,16 +125,6 @@ export class MintFactory {
             }
         }
 
-        await this.storage.put('hash', hash)
-        await this.storage.put('status', 'mining')
-        await this.storage.put('mine_total', sanitizedPaletteArray.length)
-        await this.storage.put('mine_progress', 0)
-        await this.storage.put('body', {
-            palette: body.palette,
-            width: body.width,
-            secret: body.secret,
-        })
-
         // Pre-gen the image and store in R2
         const image = await paletteToBase64(body.palette, body.width)
 
@@ -272,7 +142,19 @@ export class MintFactory {
             }
         })
 
+        await this.storage.put('status', 'mining')
+        await this.storage.put('mine_total', sanitizedPaletteArray.length)
+        await this.storage.put('mine_progress', 0)
+        await this.storage.put('body', {
+            hash,
+            palette: body.palette,
+            width: body.width,
+            secret: body.secret,
+        })
+
         // TOOD should also put some stuff in a D1 for easy sorting and searching?
+
+        // TODO we should probably save every job to the KV for review and cleanup in a cron job later
 
         // queue up the mine jobs
         const mineJobs: { body: MintJob }[] = sanitizedPaletteArray.map((slice) => ({
@@ -285,43 +167,25 @@ export class MintFactory {
         }))
 
         const errors = await Promise
-            .allSettled(chunkArray(mineJobs, 100).map((mineJobsChunk) => 
-                // this.env.MINT_QUEUE.sendBatch(mineJobsChunk))
-                this.env.TX_QUEUE.sendBatch(mineJobsChunk))
+            .allSettled(chunkArray(mineJobs, 100).map((mineJobsChunk) =>
+                this.env.TX_SEND.sendBatch(mineJobsChunk))
             )
             .then((res) => res.filter((res) => res.status === 'rejected'))
 
         if (errors.length) {
-            // TODO this is big bad btw, would result in an incompletable job
-            console.error(JSON.stringify(errors, null, 2))
+            // TODO this is big bad btw, would result in an incompletable mint
+            // Thankfully because we save how much work we _should_ be doing we'll never attempt a full mint of an incomplete partial mint
+            console.log(errors)
             throw new StatusError(400, 'Failed to queue mine jobs')
         }
 
-        // TODO we should probably save every job to the KV for review and cleanup in a cron job later
-
         return text(this.id.toString())
-    }
-    async patchJob(req: IRequestStrict) {
-        this.pending.push({
-            hash: req.params.hash,
-            retry: 0,
-            body: await req.json() as MintJob
-        })
-
-        await this.storage.put('pending', this.pending)
-
-        if (!await this.storage.getAlarm())
-            await this.storage.setAlarm(Date.now() + 5000)
-
-        return status(204)
     }
     async flushAll(req?: Request) {
         // TODO be a little smarter before flushing everything
         // if there are pending tasks fail them gracefully. e.g. don't lose channel accounts
         // hmm interestingly too it's possible tasks may be queued which will bring this DO back to life which would be very bad
         // we likely need a failsafe way for all requests to know if the DO is dead or not
-
-        this.complete = true
 
         await this.storage.sync()
         await this.storage.deleteAlarm()
@@ -336,15 +200,19 @@ export class MintFactory {
         if (req)
             return status(204)
     }
+    async markProgress(req: Request) {
+        const { mintJob: body, returnValueXDR }: {
+            mintJob: MintJob,
+            returnValueXDR: string | undefined
+        } = await req.json() as any
 
-    async markProgress(body: MintJob, res: SorobanRpc.GetSuccessfulTransactionResponse) {
         switch (body.type) {
             case 'mine':
                 await this.mineProgress()
                 break;
             case 'mint':
                 if (body.width)
-                    await this.mintComplete(res)
+                    await this.mintComplete(returnValueXDR)
                 else
                     await this.mintProgress()
                 break;
@@ -352,6 +220,7 @@ export class MintFactory {
                 throw new StatusError(404, 'Type not found')
         }
     }
+
     async mineProgress() {
         const mineTotal: number = await this.storage.get('mine_total') || 0
 
@@ -360,7 +229,11 @@ export class MintFactory {
         mineProgress++
 
         // mining is done, move on to minting
-        if (mineProgress >= mineTotal) {
+        if (mineProgress < mineTotal) {
+            await this.storage.put('mine_progress', mineProgress)
+        }
+
+        else {
             const body: any = await this.storage.get('body')
             const sanitizedPaletteArray: [number, number[]][][] = []
 
@@ -371,6 +244,7 @@ export class MintFactory {
                 const index = Number(i)
                 const color = body.palette[index]
                 const indexes: number[] = map.get(color) || []
+
                 indexes.push(index)
                 map.set(color, indexes)
                 count++
@@ -388,8 +262,10 @@ export class MintFactory {
 
             await this.storage.put('status', 'minting')
             await this.storage.put('mine_progress', mineTotal)
+            await this.storage.put('mint_total', sanitizedPaletteArray.length)
+            await this.storage.put('mint_progress', 0)
 
-            // These minting requests actually need to execute serially vs in parallel (as the color mining can)
+            // NOTE These minting requests actually need to execute serially vs in parallel (as the color mining can)
             // this is due to the glyph growing in size so preemtive parallel tx submission will have bad simulated resource assumptions
             // this probably means we store progress here in the DO and just slowly work through a task list inside the alarm and every time we get a new mint success we move on to the next mint palette
             // once that mint palette queue is empty we can move on to the final mint
@@ -403,36 +279,28 @@ export class MintFactory {
             }))
 
             // Kick off the first mint job
-            let [mintJob] = mintJobs.splice(0, 1)
+            const mintJob = mintJobs.shift()
 
-            // await this.env.MINT_QUEUE.send(mintJob)
-            await this.env.TX_QUEUE.send(mintJob)
             await this.storage.put('mint_jobs', mintJobs)
-            await this.storage.put('mint_total', sanitizedPaletteArray.length)
-            await this.storage.put('mint_progress', 0)
-        } else {
-            await this.storage.put('mine_progress', mineProgress)
+            await this.env.TX_SEND.send(mintJob)
         }
     }
     async mintProgress() {
-        let mintProgress: number = await this.storage.get('mint_progress') || 0
-
-        mintProgress++
+        const mintTotal: number = await this.storage.get('mint_total') || 0
 
         // Look up the next `mint_job` and queue it then update the `mint_job` with that job removed
-        let mintJobs: MintJob[] = await this.storage.get('mint_jobs') || []
-        let [mintJob] = mintJobs.splice(0, 1)
+        const mintJobs: MintJob[] = await this.storage.get('mint_jobs') || []
+        const mintJob = mintJobs.shift()
+
+        await this.storage.put('mint_jobs', mintJobs)
 
         if (mintJob) {
-            // await this.env.MINT_QUEUE.send(mintJob)
-            await this.env.TX_QUEUE.send(mintJob)
-            await this.storage.put('mint_jobs', mintJobs)
-            await this.storage.put('mint_progress', mintProgress)
+            await this.storage.put('mint_progress', mintTotal - mintJobs.length)
+            await this.env.TX_SEND.send(mintJob)
         }
 
         // Once we're all done minting issue one final mint with the width
         else {
-            const mintTotal: number = await this.storage.get('mint_total') || 0
             const body: any = await this.storage.get('body')
             const mintJob: MintJob = {
                 id: this.id.toString(),
@@ -442,43 +310,27 @@ export class MintFactory {
                 width: body.width,
             }
 
-            // await this.env.MINT_QUEUE.send(mintJob)
-            await this.env.TX_QUEUE.send(mintJob)
             await this.storage.put('mint_progress', mintTotal)
+            await this.env.TX_SEND.send(mintJob)
         }
     }
-    async mintComplete(res: SorobanRpc.GetSuccessfulTransactionResponse) {
-        const pre_hash = await this.storage.get('hash')
-        const hash = res.returnValue?.bytes().toString('hex')
+    async mintComplete(returnValueXDR: string | undefined) {
+        const body: any = await this.storage.get('body')
 
-        if (pre_hash !== hash)
-            console.log('!! BIG BAD HASH MISMATCH !!')
+        const returnValue = xdr.ScVal.fromXDR(returnValueXDR!, 'base64')
+        const hash = returnValue.bytes().toString('hex')
 
-        if (hash) {
-            // await this.storage.put('hash', hash) // NOTE hopefully the hash was the same as what we pre-calced 😳
-
-            const body: any = await this.storage.get('body')
-
+        if (hash)
             await this.env.GLYPHS.put(hash, new Uint8Array(body.palette), {
                 metadata: {
                     id: this.id.toString(),
                     width: body.width,
-                    status: 'minted' // system oriented. i.e. `minted|scraped`
+                    status: 'minted', // system oriented. i.e. `minted|scraped`
+                    mishash: body.hash !== hash ? body.hash : undefined, // realistically this should never happen, but if it does we need to save both hashes
                 }
             })
-        }
-        
-        // await this.storage.put('status', 'complete')
 
         // NOTE no need to store anything on the DO if we're just going to flush as the last command
         await this.flushAll()
-    }
-
-    async returnChannel(secret?: string) {
-        return secret
-            ? this.env.CHANNEL_ACCOUNT
-                .get(this.channel_account_id)
-                .fetch(`http://fake-host/return/${secret}`)
-            : undefined
     }
 }

@@ -218,7 +218,7 @@ export class ChannelAccount {
             if (this.create_channels.length)
                 this.createChannels()
         } catch (err) {
-            console.error(JSON.stringify(err, null, 2))
+            console.error(err)
             this.creating = false
         }
     }
@@ -279,12 +279,12 @@ export class ChannelAccount {
                 if (this.mergeable_channels.length)
                     this.mergeChannels()
             } catch (err) {
-                console.error(JSON.stringify(err, null, 2))
+                console.error(err)
                 this.mergeable_channels.push(...channels) // put the channels back in the queue
                 await this.storage.put('mergeable', this.mergeable_channels)
             }
         } catch (err) {
-            console.error(JSON.stringify(err, null, 2))
+            console.error(err)
             this.merging = false
         }
     }

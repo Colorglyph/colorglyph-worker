@@ -1,6 +1,6 @@
 interface Env {
-    TX_QUEUE: Queue
-    // MINT_QUEUE: Queue
+    TX_SEND: Queue
+    TX_GET: Queue
     CHANNEL_ACCOUNT: DurableObjectNamespace
     MINT_FACTORY: DurableObjectNamespace
     IMAGES: R2Bucket
@@ -21,5 +21,5 @@ interface MintJob {
     palette: [number, number][] | [number, number[]][]
     channel?: string
     width?: number
-    tx?: string
+    hash?: string
 }

@@ -9,7 +9,7 @@ import {
 	createCors,
 } from 'itty-router'
 import { mintQueue } from './fetch/mint_queue'
-import { processQueue } from './queue/process_queue'
+import { processQueue } from './queue/process'
 import { MintFactory } from './durable_object/mint_factory'
 import { ChannelAccount } from './durable_object/channel_account'
 import { debug } from './fetch/debug'

@@ -3,24 +3,26 @@ import { Contract, RawContract } from './common'
 import { sortMapKeys } from '../utils'
 import { authorizeOperation } from './authorize_op'
 
-// TODO both this and processMint could likely be further dry'ed up
-
-export async function processMine(message: Message<MintJob>, env: Env) {
+export async function mintOp(message: Message<MintJob>, env: Env) {
     const body = message.body
     const kp = Keypair.fromSecret(body.secret)
     const pubkey = kp.publicKey()
     const { contract: Colorglyph } = new Contract(kp)
 
-    const mineMap = new Map((body.palette as [number, number][]).map(([color, amount]) => [color, amount]))
+    // TODO requires the colors being used to mint have been mined by the secret (pubkey hardcoded)
+    const mintMap = body.palette.length
+        ? new Map([[pubkey, sortMapKeys(new Map(body.palette as [number, number[]][]))]])
+        : new Map()
 
-    const args = Colorglyph.spec.funcArgsToScVals('colors_mine', {
-        miner: pubkey,
+    const args = Colorglyph.spec.funcArgsToScVals('glyph_mint', {
+        minter: pubkey,
         to: undefined,
-        colors: new Map(sortMapKeys(mineMap))
+        colors: mintMap,
+        width: body.width,
     })
 
     const operation = RawContract.call(
-        'colors_mine',
+        'glyph_mint',
         ...args
     )
 
