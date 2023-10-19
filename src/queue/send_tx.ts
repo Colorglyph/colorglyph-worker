@@ -62,7 +62,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
             case 'PENDING':
                 console.log(subTx)
 
-                await sleep(1) // Throttle TX_SEND to 1 successfully sent tx per second
+                await sleep(1) // TEMP during Phase 1. Throttle TX_SEND to 1 successfully sent tx per second
                 await env.TX_GET.send({
                     ...body, // send along the `body` in case we need to re-queue later
                     hash: subTx.hash,
@@ -81,7 +81,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
                 await env.ERRORS.put(body.id, data)
 
-                if (subTx.status !== 'DUPLICATE') {
+                if (subTx.status !== 'DUPLICATE') { // ERROR | TRY_AGAIN_LATER
                     // this will ensure a retry
                     // we throw vs `message.retry()` because we want to return the channel account
                     throw new StatusError(400, subTx.status)

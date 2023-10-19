@@ -83,5 +83,5 @@ dead_letter_queue = "colorglyph-tx-get-dlq"
 queue = "colorglyph-tx-get-dlq"
 max_batch_size = 1
 max_batch_timeout = 5
-max_retries = 12
+max_retries = 6
 max_concurrency = 1

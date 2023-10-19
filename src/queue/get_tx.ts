@@ -38,6 +38,7 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
                         })
                     })
                 
+                // if the batch fails further down we don't want to retry this message
                 message.ack()
             } catch {
                 message.retry()
@@ -69,8 +70,9 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
 
                 // TODO there can be failures do to the resourcing in which case we should toss this hash but re-queue the tx
                 // we should be somewhat careful here though as this type of failure likely means funds were spent
-                // await this.env.TX_SEND.send(body) // TEMP. Bad idea!!
+                // await env.TX_SEND.send(body) // TEMP. Bad idea!!
 
+                // this was a failure but not one we want to retry on unless an `await` failed
                 message.ack()
             } catch {
                 message.retry()
