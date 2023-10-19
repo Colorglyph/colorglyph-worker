@@ -54,7 +54,7 @@ export async function channelProcess(messages: Message<ChannelJob>[], env: Env, 
     tx.append('tx', transaction.toXDR())
 
     await horizon.post('/transactions', tx)
-        .then((res) => console.log('created', res))
+        .then((res) => console.log(res))
 
     // If tx submission was successful add these channels to our available channels list
     for (const channel of created) {

@@ -6,3 +6,5 @@
     * Since we're appending it could require quite a bit of reading and writing
 
 * Consider hooking up Sentry for error logging
+
+* Queue retries send the message to the front, which is a problem for tx-get if the NOT_FOUND is unlikely to ever find. We're just in a pointless waiting game for 60 seconds (5 seconds * 12 retries)

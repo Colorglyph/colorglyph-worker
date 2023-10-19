@@ -13,6 +13,12 @@ export async function processQueue(batch: MessageBatch<any>, env: Env, ctx: Exec
             await channelProcess(batch.messages as Message<ChannelJob>[], env, ctx)
             break;
 
+        case 'colorglyph-tx-get':
+            for (const message of batch.messages) {
+                await getTx(message, env, ctx)   
+            }
+            break;
+
         default:
             if (batch.messages.length > 1)
                 throw new StatusError(400, `Batch size > 1 not supported`)
@@ -22,10 +28,6 @@ export async function processQueue(batch: MessageBatch<any>, env: Env, ctx: Exec
             switch (batch.queue) {
                 case 'colorglyph-tx-send':
                     await sendTx(message, env, ctx)
-                    break;
-        
-                case 'colorglyph-tx-get':
-                    await getTx(message, env, ctx)
                     break;
         
                 case 'colorglyph-tx-get-dlq':

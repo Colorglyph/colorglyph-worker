@@ -129,6 +129,12 @@ export class ChannelAccount {
     }
     async returnChannel(req: IRequestStrict) {
         this.available_channels.push(req.params.secret)
+
+        // ensure uniqueness before saving
+        // there are cases where a job could fail after returning the channel
+        // and then on re-run it will try to return again causing a dupe
+        this.available_channels = [...new Set(this.available_channels)] // use Set to filter out dupes
+        
         await this.storage.put('available', this.available_channels)
 
         return status(204)
