@@ -102,6 +102,7 @@ export class ChannelAccount {
         // Loop over all available channels until we find one with sufficient balance to use
         while (this.available_channels.length) {
             channel = this.available_channels.shift()!
+            await this.storage.put('available', this.available_channels)
             const pubkey = Keypair.fromSecret(channel).publicKey()
 
             const res: any = await horizon.get(`/accounts/${pubkey}`)
