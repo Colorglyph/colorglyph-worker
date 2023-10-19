@@ -1,6 +1,6 @@
-import { Buffer } from 'node:buffer';
+import { Buffer } from 'node:buffer'
 
-globalThis.Buffer = Buffer;
+globalThis.Buffer = Buffer
 
 import {
 	error,
@@ -8,14 +8,14 @@ import {
 	Router,
 	createCors,
 } from 'itty-router'
-import { mintQueue } from './fetch/mint_queue';
-import { processQueue } from './queue/process_queue';
-import { MintFactory } from './durable_object/mint_factory';
-import { ChannelAccount } from './durable_object/channel_account';
-import { debug } from './fetch/debug';
-import { image } from './fetch/image';
-import { glyphs } from './fetch/glyphs';
-import { flush } from './fetch/flush';
+import { mintQueue } from './fetch/mint_queue'
+import { processQueue } from './queue/process_queue'
+import { MintFactory } from './durable_object/mint_factory'
+import { ChannelAccount } from './durable_object/channel_account'
+import { debug } from './fetch/debug'
+import { image } from './fetch/image'
+import { glyphs } from './fetch/glyphs'
+import { flush } from './fetch/flush'
 
 const { preflight, corsify } = createCors()
 

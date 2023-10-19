@@ -38,8 +38,8 @@ import { paletteToBase64 } from '../utils/paletteToBase64'
 
 export class MintFactory {
     id: DurableObjectId
-    storage: DurableObjectStorage
     env: Env
+    storage: DurableObjectStorage
     state: DurableObjectState
     router: RouterType
     pending: { hash: string, retry: number, body: MintJob }[]
@@ -49,8 +49,8 @@ export class MintFactory {
 
     constructor(state: DurableObjectState, env: Env) {
         this.id = state.id
-        this.storage = state.storage
         this.env = env
+        this.storage = state.storage
         this.state = state
         this.router = Router()
         this.pending = []

@@ -11,7 +11,5 @@ export async function mintQueue(req: IRequestStrict, env: Env, ctx: ExecutionCon
         id = env.MINT_FACTORY.newUniqueId()
     }
 
-    return env.MINT_FACTORY
-        .get(id)
-        .fetch('http://fake-host', req as any)
+    return env.MINT_FACTORY.get(id).fetch('http://fake-host', req as any)
 }

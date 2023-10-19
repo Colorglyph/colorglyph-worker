@@ -18,16 +18,24 @@ binding = 'IMAGES'
 bucket_name = 'colorglyph-images'
 
 [[durable_objects.bindings]]
-name = "MINT_FACTORY"
-class_name = "MintFactory"
-
-[[durable_objects.bindings]]
 name = "CHANNEL_ACCOUNT"
 class_name = "ChannelAccount"
 
+[[durable_objects.bindings]]
+name = "MINT_FACTORY"
+class_name = "MintFactory"
+
 [[migrations]]
 tag = "v1"
-new_classes = ["MintFactory", "ChannelAccount"]
+new_classes = ["ChannelAccount", "MintFactory"]
+
+[[migrations]]
+tag = "v2"
+new_classes = ["TestDo"]
+
+[[migrations]]
+tag = "v3"
+deleted_classes = ["TestDo"]
 
 [[queues.producers]]
 binding = "TX_QUEUE"

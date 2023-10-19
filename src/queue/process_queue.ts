@@ -3,6 +3,9 @@ import { processMine } from "./process_mine"
 import { processMint } from "./process_mint"
 import { processTx } from "./process_tx"
 
+// TODO I actually think we should move the mint-queue stuff into a single tx-queue
+// I don't actually think it's neccessary to have two queues
+
 export async function processQueue(batch: MessageBatch<MintJob>, env: Env) {
     if (batch.messages.length > 1)
         throw new StatusError(400, `Batch size > 1 not supported`)

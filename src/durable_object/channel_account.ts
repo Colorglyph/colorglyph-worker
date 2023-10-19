@@ -25,6 +25,7 @@ const horizon = fetcher({ base: 'https://horizon-futurenet.stellar.org' })
 export class ChannelAccount {
     env: Env
     storage: DurableObjectStorage
+    state: DurableObjectState
     id: DurableObjectId
     router: RouterType
     available_channels: string[]
@@ -37,8 +38,9 @@ export class ChannelAccount {
 
     constructor(state: DurableObjectState, env: Env) {
         this.id = state.id
-        this.storage = state.storage
         this.env = env
+        this.storage = state.storage
+        this.state = state
         this.router = Router()
         this.available_channels = []
         this.busy_channels = []
