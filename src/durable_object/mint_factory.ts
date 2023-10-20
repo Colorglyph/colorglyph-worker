@@ -36,6 +36,8 @@ import { paletteToBase64 } from '../utils/paletteToBase64'
 // do KV, R2 and Queue requests count towards requests and/or sub requests?
 // does the queue consumer count as a request or sub request?
 
+// TODO universally across all fetch methods if the body no longer exists for _anything_ other than getJob, mintJob and flushAll we should be exiting
+
 export class MintFactory {
     id: DurableObjectId
     env: Env
@@ -77,7 +79,7 @@ export class MintFactory {
 
         return json({
             id: this.id.toString(),
-            hash: body.hash,
+            hash: body?.hash,
             status,
             mineTotal,
             mineProgress,
@@ -197,6 +199,8 @@ export class MintFactory {
         return text(this.id.toString())
     }
     async markProgress(req: Request) {
+        // TODO this should exit early if the DO has been flushed at any point (storage body is gone)
+
         const { mintJob: body, returnValueXDR }: {
             mintJob: MintJob,
             returnValueXDR: string | undefined

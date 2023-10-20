@@ -73,10 +73,10 @@ max_concurrency = 1
 
 [[queues.consumers]]
 queue = "colorglyph-tx-get"
-max_batch_size = 10
+max_batch_size = 10 # consider increasing this (keep in mind RPC rate limits though)
 max_batch_timeout = 5
 max_retries = 12
-max_concurrency = 1
+max_concurrency = 1 # consider allowing this to autoscale
 dead_letter_queue = "colorglyph-tx-get-dlq"
 
 [[queues.consumers]]
