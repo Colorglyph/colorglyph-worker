@@ -1,8 +1,7 @@
+// TEMP fine tune these as we get closer to launch. I hear return/event KB may be increased
 const maxMineSize = 10
-
-// TODO at least these values need more tuning, especially the maxMintCount as there are likely size/count combos that could cause failure
 const maxMintSize = 10
-const maxMintCount = 1000 // 50 // TODO with the event updates I actually don't think we need this restriction anymore
+const maxMintCount = 1000 // 50 // TEMP with the event updates I actually don't think we need this restriction anymore
 
 import {
     error,
@@ -17,24 +16,14 @@ import { xdr } from 'soroban-client'
 import { chunkArray, getGlyphHash } from '../utils'
 import { paletteToBase64 } from '../utils/paletteToBase64'
 
-// TODO Need a cron task to reboot alarms for mint jobs that were currently in process if/when the DO was rebooted
-// I think a simple ping/healthcheck to the DO id would be sufficient?
-// Actually not that the alarm isn't tied to the class instantiation I'm not sure we're in trouble as I think alarms persist across restarts
-// If not though we still need a way to restart the alarm pending process loop
-// need a robust plan for DO to be restarted at any point
-// I'm starting to think the only sure fire way to pull this off is to only really do mission critial work in queues vs in the DO itself
 // NOTE A durable object can die at any moment due to a code push
 // this causes all pending state to be lost and all pending requests to die
 // for alarms this means the alarm will exit somewhere in the middle and then magically retry itself with no ability to catch that exception
 
 // TODO seeing a MASSIVE number or requests and sub requests
 // need to trace out what's going on here
-// could be that storage calls are considered sub requests?
-// maybe a rogue alarm?
-// maybe queue retries are getting out of hand?
-// are we accidentally duping pending hashes?
+// maybe a rogue loop somewhere?
 // do KV, R2 and Queue requests count towards requests and/or sub requests?
-// does the queue consumer count as a request or sub request?
 
 export class MintFactory {
     id: DurableObjectId
@@ -88,26 +77,26 @@ export class MintFactory {
     async mintJob(req: Request) {
         // TODO this method of minting requires both the mining and minting be done by the same secret
         // you cannot use colors mined by other miners
-        // you can't even really use your own mined colors as this will freshly mint all colors before doing the mint
+        // you can't even really use your own mined colors as this will freshly mine all colors before doing the mint
         // fine for now just be aware
 
-        // TODO check if the to-be-minted glyph already exists before going through all the trouble
-        // if requested colors already exist in the minter's inventory use those
-        // !! slightly dangerous if there are multiple mints queued as you could promised a color already committed
-        // might only allow one mint at a time
+        // TODO if requested colors already exist in the minter's inventory use those
+        // slightly instable if there are multiple mints queued as you could promise a color already committed
+        // might should only allow one mint at a time per destination address
 
-        // NOTE I don't love that we have to send along the secret here but given we have to authorize stuff far into the future this is probably the only way
+        // TODO I don't love that we have to send along the secret here but given we have to authorize stuff far into the future this is probably the only way
         // We may be able to send along a ton of signed SorobanAuthEntries but that leaves us slightly fragile to changes in case of tx submission failure
         // But maybe since we have separation from stellar stuff and soroban stuff we can just mod the stellar tx and keep popping the same SorobanAuthEntries in
         // If we do end up passing along secrets though we don't really need to use channel accounts, we can just continue to use the same pubkey
-        // Or actually maybe channel accounts are still good as it allows us to spread the mint for a single account across many channel accounts making the mint faster 🧠
+        // Or actually maybe channel accounts are still good as it allows us to spread the mines for a single account across many channel accounts making mining faster 🧠
+        // It's possible we could combine soroban auth, channel accounts and fee bumps in order to have Colorglyph pay fees, users pay sequence numbers and the final mint to arrive in the user's wallet
 
         // TODO switch to using a two account mint
         // one account for the progressive mint account and the other for the final destination address
         // the one is a secret key and the other is a public key
         // this may require the ability to set the miner address separate from the signing account paying the mining fee
         // there's an address that pays the mining fee, there's an address that is the miner who will recieve royalties, and there's the address that receives the final minted glyph
-
+        // ---
         // this is the destination for the glyph and the miner for the colors
         // this is the address that pays the mining fee
         // this is the address that receives the colors and must sign for the minting
@@ -145,9 +134,6 @@ export class MintFactory {
         if (!glyph) { // TEMP until we handle the scrape scenario better as the status of a glyph should change between minted and scraped (also probably means that status should be stored outside the GLYPH KV itself)
             // Pre-gen the image and store in R2
             const image = await paletteToBase64(body.palette, body.width)
-
-            // NOTE this should maybe happen in a queue task? idk it's a very small amount of data
-            // At the very least do it before queuing anything up in case the queue fails for some reason
             await this.env.IMAGES.put(hash, image)
 
             // store in KV
@@ -171,7 +157,7 @@ export class MintFactory {
             secret: body.secret,
         })
 
-        // TOOD should also put some stuff in a D1 for easy sorting and searching?
+        // TODO should also put some stuff in a D1 for easy sorting and searching?
 
         // TODO we should probably save every job to the KV for review and cleanup in a cron job later
 
@@ -194,6 +180,7 @@ export class MintFactory {
         if (errors.length) {
             // TODO this is big bad btw, would result in an incompletable mint
             // Thankfully because we save how much work we _should_ be doing we'll never attempt a full mint of an incomplete partial mint
+            console.log(`!! we didn't queue all the mine jobs !!`)
             console.log(errors)
         }
 
@@ -228,11 +215,6 @@ export class MintFactory {
         return status(204)
     }
     async flushAll(req?: Request) {
-        // TODO be a little smarter before flushing everything
-        // if there are pending tasks fail them gracefully. e.g. don't lose channel accounts
-        // hmm interestingly too it's possible tasks may be queued which will bring this DO back to life which would be very bad
-        // we likely need a failsafe way for all requests to know if the DO is dead or not
-
         await this.storage.sync()
         await this.storage.deleteAlarm()
         await this.storage.deleteAll()
@@ -351,7 +333,6 @@ export class MintFactory {
                 }
             })
 
-        // NOTE no need to store anything on the DO if we're just going to flush as the last command
         await this.flushAll()
     }
 }

@@ -4,9 +4,6 @@ import { getTx } from "./get_tx"
 import { channelProcess } from "./channel_process"
 import { sleep } from "./common"
 
-// TODO I actually think we should move the mint-queue stuff into a single tx-queue
-// I don't actually think it's neccessary to have two queues
-
 export async function processQueue(batch: MessageBatch<any>, env: Env, ctx: ExecutionContext) {
     switch (batch.queue) {
         case 'colorglyph-channel-process':

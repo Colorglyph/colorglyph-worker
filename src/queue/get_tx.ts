@@ -1,6 +1,7 @@
 import { SorobanRpc } from "soroban-client"
 import { server } from "./common"
 import { StatusError } from "itty-router"
+import { writeErrorToR2 } from "../utils/writeErrorToR2"
 
 export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionContext): Promise<boolean> {
     const id = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1')
@@ -68,23 +69,12 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
                     else throw new StatusError(res.status, res.statusText)
                 })
 
-                // TEMP while we wait for `soroban-client` -> `server.getTransaction` -> `FAILED` to send more complete data
-                const res_string = await server._getTransaction(hash)
-                    .then((res) => JSON.stringify(res, null, 2))
-
-                console.log(hash, res_string)
-
                 // save the error
-                const existing = await env.ERRORS.get(body.id)
-
-                const encoder = new TextEncoder()
-                const data = encoder.encode(`${await existing?.text()}\n\n${hash}\n\n${res_string}`)
-
-                await env.ERRORS.put(body.id, data)
+                await writeErrorToR2(body, hash, env)
 
                 // TODO there can be failures do to the resourcing in which case we should toss this hash but re-queue the tx
                 // we should be somewhat careful here though as this type of failure likely means funds were spent
-                // await env.TX_SEND.send(body) // TEMP. Bad idea!!
+                // await env.TX_SEND.send(body) // !! bad idea !!
 
                 // this was a failure but not one we want to retry on unless an `await` failed
                 message.ack()

@@ -65,12 +65,12 @@ export async function channelProcess(messages: Message<ChannelJob>[], env: Env, 
     for (const channel of created) {
         try {
             await stub
-            .fetch(`http://fake-host/return/${channel}`, {method: 'PUT'})
-            .then((res) => {
-                if (res.ok) return
-                else throw new StatusError(res.status, res.statusText)
-            })
-        } catch(err) {
+                .fetch(`http://fake-host/return/${channel}`, { method: 'PUT' })
+                .then((res) => {
+                    if (res.ok) return
+                    else throw new StatusError(res.status, res.statusText)
+                })
+        } catch (err) {
             console.log(`!! we created channels that weren't saved !!`, channel)
             // TODO don't retry at this point, just save this error by any means possible so we get the channel
         }

@@ -11,15 +11,14 @@ import {
 import { Keypair } from 'soroban-client'
 import { fetcher } from 'itty-fetcher'
 
+const min_balance = 2
 const horizon = fetcher({ base: 'https://horizon-futurenet.stellar.org' })
 
-// TODO I'm not convinced we can't end up in a place where we have stuck busy channels that will never be returned to the pool
-// For example when a DO dies for things like CPU/MEM or even just a code push and the process never resolves and thus the busy channel is never returned
-
-// TODO We should place caps on channel arrays so these things don't grow unbounded somehow
-// They can be high but they should be capped
+// TODO We should place caps on the channel array so it doesn't grow unbounded somehow
+// they can be high but they should be capped
 
 // TODO should we save errors from this DO? Probably
+// maybe in Sentry
 
 export class ChannelAccount {
     env: Env
@@ -96,7 +95,7 @@ export class ChannelAccount {
             const res: any = await horizon.get(`/accounts/${pubkey}`)
             const { balance } = res.balances.find(({ asset_type }: any) => asset_type === 'native')
 
-            if (Number(balance) < 2) { // if we have < {x} XLM we shouldn't use this channel account // TODO probably should be a bit more than 2 XLM
+            if (Number(balance) < min_balance) { // if we have < {x} XLM we shouldn't use this channel account
                 await this.env.CHANNEL_PROCESS.send({
                     type: 'merge',
                     channel
@@ -105,7 +104,7 @@ export class ChannelAccount {
             }
                 
             else {
-                await this.storage.put('channels', this.channels) // NOTE if the return fails we'll lose the channel, but I think I'm fine with that
+                await this.storage.put('channels', this.channels) // NOTE if the return fails we'll lose the channel
                 return text(channel)
             }
         }

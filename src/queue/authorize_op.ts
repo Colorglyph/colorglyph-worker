@@ -1,6 +1,7 @@
 import { StatusError } from "itty-router"
 import { Account, Keypair, Operation, SorobanRpc, StrKey, TimeoutInfinite, TransactionBuilder, authorizeEntry, xdr } from "soroban-client"
 import { networkPassphrase, server } from "./common"
+import { writeErrorToR2 } from "../utils/writeErrorToR2"
 
 export async function authorizeOperation(
     body: MintJob, 
@@ -19,23 +20,8 @@ export async function authorizeOperation(
 
     const simTx = await server.simulateTransaction(tx)
 
-    if (!SorobanRpc.isSimulationSuccess(simTx)) {
-        console.log(simTx)
-
-        // save the error
-        const existing = await env.ERRORS.get(body.id)
-
-        let events = ''
-
-        for (const event of simTx.events) {
-            events += `\n\n${event.event().toXDR('base64')}`
-        }
-
-        const encoder = new TextEncoder()
-        const data = encoder.encode(`${await existing?.text()}\n\n${events}\n\n${simTx.error}`)
-
-        await env.ERRORS.put(body.id, data)
-
+    if (!SorobanRpc.isSimulationSuccess(simTx)) { // Error, Raw, Restore
+        await writeErrorToR2(body, simTx, env)
         throw new StatusError(400, 'Simulation failed')
     }
 

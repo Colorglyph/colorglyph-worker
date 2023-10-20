@@ -3,8 +3,6 @@ import { Contract, RawContract } from './common'
 import { sortMapKeys } from '../utils'
 import { authorizeOperation } from './authorize_op'
 
-// TODO both this and processMint could likely be further dry'ed up
-
 export async function mineOp(body: MintJob, env: Env) {
     const kp = Keypair.fromSecret(body.secret)
     const pubkey = kp.publicKey()

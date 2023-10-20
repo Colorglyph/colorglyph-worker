@@ -1,9 +1,10 @@
-import { xdr, Keypair, Operation, TransactionBuilder } from 'soroban-client'
+import { xdr, Keypair, Operation, TransactionBuilder, SorobanRpc, assembleTransaction } from 'soroban-client'
 import { server, networkPassphrase, sleep } from './common'
 import { getRandomNumber } from '../utils'
 import { mineOp } from './mine_op'
 import { mintOp } from './mint_op'
 import { StatusError } from 'itty-router'
+import { writeErrorToR2 } from '../utils/writeErrorToR2'
 
 export async function sendTx(message: Message<MintJob>, env: Env, ctx: ExecutionContext) {
     const id = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1') // Hard coded because we need to resolve to the same DO app wide
@@ -50,11 +51,20 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
             .setTimeout(30) // 30 seconds. Just needs to be less than the NOT_FOUND retry limit so we never double send
             .build()
 
-        // TEMP we likely don't need to simulate again but currently there are cases with multiauth where the initial simulation doesn't account for the authorized operation
-        const readyTx = await server.prepareTransaction(preTx)
+        // TEMP we likely don't need to simulate again but currently there are cases with multiauth where the initial simulation doesn't account for the authorized operation 
+        // https://github.com/stellar/rs-soroban-env/issues/1125
+        // this leads to insufficient resource allocation
 
-        // TODO catch error here and log it to R2 as this involves a simulation
-        // rare to catch here due to the fact we're simulating prior to this. but still
+        // TEMP we're also simulating vs preparing due to lack of error handling in the prepareTransaction method
+        // https://stellarfoundation.slack.com/archives/D01LJLND8S1/p1697820475369859 
+        const simTx = await server.simulateTransaction(preTx)
+
+        if (!SorobanRpc.isSimulationSuccess(simTx)) { // Error, Raw, Restore
+            await writeErrorToR2(body, simTx, env)
+            throw new StatusError(400, 'Simulation failed')
+        }
+
+        const readyTx = assembleTransaction(preTx, networkPassphrase, simTx).build()
 
         readyTx.sign(kp)
 
@@ -90,12 +100,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                 }
 
                 // save the error
-                const existing = await env.ERRORS.get(body.id)
-
-                const encoder = new TextEncoder()
-                const data = encoder.encode(`${await existing?.text()}\n\n${subTx.hash}\n\n${subTx.errorResult?.toXDR('base64')}`)
-
-                await env.ERRORS.put(body.id, data)
+                await writeErrorToR2(body, subTx.hash, env)
         }
     } catch (err) {
         console.error(err)
