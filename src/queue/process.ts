@@ -22,6 +22,7 @@ export async function processQueue(batch: MessageBatch<any>, env: Env, ctx: Exec
             }
 
             // if there's a retry wait 5 seconds first
+            // we sleep out here vs inside the getTx function so we don't compound the waits 10 * 5 = 50 seconds 😳
             if (retry)
                 await sleep(5)
 

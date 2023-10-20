@@ -40,7 +40,7 @@ export async function authorizeOperation(
     }
 
     const currentLedger = await server.getLatestLedger()
-    const validUntilLedger = currentLedger.sequence + (12 * 60 * 24)
+    const validUntilLedger = currentLedger.sequence + 12 // 1 minute of ledgers
 
     // Because we're doing signing here it may make sense to keep this in a queue vs back in the DO
     const authEntry = await authorizeEntry(

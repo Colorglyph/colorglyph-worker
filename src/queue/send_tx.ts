@@ -100,6 +100,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
             await stub.fetch(`http://fake-host/return/${channel}`, {method: 'PUT'})
 
         // Wait 5 seconds before retrying
+        // NOTE if we increase the messages per batch we'll need to move this sleep outside this fn so we don't compound sleeps
         await sleep(5)
         message.retry()
     }
