@@ -2,7 +2,7 @@ const maxMineSize = 10
 
 // TODO at least these values need more tuning, especially the maxMintCount as there are likely size/count combos that could cause failure
 const maxMintSize = 10
-const maxMintCount = 50
+const maxMintCount = 1000 // 50 // TODO with the event updates I actually don't think we need this restriction anymore
 
 import {
     error,
