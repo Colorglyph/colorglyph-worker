@@ -39,15 +39,15 @@ import { paletteToBase64 } from '../utils/paletteToBase64'
 export class MintFactory {
     id: DurableObjectId
     env: Env
-    storage: DurableObjectStorage
     state: DurableObjectState
+    storage: DurableObjectStorage
     router: RouterType
 
     constructor(state: DurableObjectState, env: Env) {
         this.id = state.id
         this.env = env
-        this.storage = state.storage
         this.state = state
+        this.storage = state.storage
         this.router = Router()
 
         this.router
@@ -249,16 +249,18 @@ export class MintFactory {
 
     async mineProgress(body: any) {
         const mineTotal: number = await this.storage.get('mine_total') || 0
+
+        if (!mineTotal)
+            throw new StatusError(400, 'Nothing to mine')
+
         let mineProgress: number = await this.storage.get('mine_progress') || 0
 
         mineProgress++
 
-        // mining is done, move on to minting
-        if (mineProgress < mineTotal) {
-            await this.storage.put('mine_progress', mineProgress)
-        }
+        await this.storage.put('mine_progress', mineProgress)
 
-        else {
+        // mining is done, move on to minting
+        if (mineProgress === mineTotal) {
             const sanitizedPaletteArray: [number, number[]][][] = []
 
             let count = 0
@@ -285,7 +287,6 @@ export class MintFactory {
             }
 
             await this.storage.put('status', 'minting')
-            await this.storage.put('mine_progress', mineTotal)
             await this.storage.put('mint_total', sanitizedPaletteArray.length)
             await this.storage.put('mint_progress', 0)
 
@@ -305,36 +306,20 @@ export class MintFactory {
             // Kick off the first mint job
             const mintJob = mintJobs.shift()!
 
-            // await this.storage.put('mint_jobs', mintJobs)
-            // await this.storage.put('mint_job', mintJob)
-
-            // TODO if the DO dies right here we lose the mintJob
-
-            await this.env.TX_SEND.send(mintJob)
-
-            // TODO if the DO dies right here the mintJob will be duplicated
-
             await this.storage.put('mint_jobs', mintJobs)
+            await this.env.TX_SEND.send(mintJob)
         }
     }
     async mintProgress(body: any) {
-        const mintTotal: number = await this.storage.get('mint_total') || 0
-
         // Look up the next `mint_job` and queue it then update the `mint_job` with that job removed
         const mintJobs: MintJob[] = await this.storage.get('mint_jobs') || []
+        const mintTotal: number = await this.storage.get('mint_total') || mintJobs.length
         const mintJob = mintJobs.shift()
 
-        // await this.storage.put('mint_jobs', mintJobs)
-        // await this.storage.put('mint_job', mintJob)
-
-        // TODO if the DO dies right here we lose the mintJob
+        await this.storage.put('mint_progress', mintTotal - mintJobs.length)
 
         if (mintJob) {
-            await this.storage.put('mint_progress', mintTotal - mintJobs.length)
             await this.env.TX_SEND.send(mintJob)
-
-            // TODO if the DO dies right here the mintJob will be duplicated
-
             await this.storage.put('mint_jobs', mintJobs)
         }
 
@@ -348,7 +333,6 @@ export class MintFactory {
                 width: body.width,
             }
 
-            await this.storage.put('mint_progress', mintTotal)
             await this.env.TX_SEND.send(mintJob)
             await this.storage.delete('mint_jobs')
         }

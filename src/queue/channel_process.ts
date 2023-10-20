@@ -2,6 +2,9 @@ import { StatusError } from "itty-router"
 import { horizon, networkPassphrase, oceanKp } from "./common"
 import { Account, Keypair, Operation, TimeoutInfinite, Transaction, TransactionBuilder } from "soroban-client"
 
+// TODO a lot rides on the ocean pubkey always having available funds
+// there should be some robust alerts for monitoring the balance of the ocean account
+
 export async function channelProcess(messages: Message<ChannelJob>[], env: Env, ctx: ExecutionContext) {
     const id = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1')
     const stub = env.CHANNEL_ACCOUNT.get(id)
@@ -55,7 +58,7 @@ export async function channelProcess(messages: Message<ChannelJob>[], env: Env, 
     const tx = new FormData()
     tx.append('tx', transaction.toXDR())
 
-    await horizon.post('/transactions', tx)
+    await horizon.post('/transactions', tx) // NOTE if this fails in the dlq we lose the channel
         .then((res) => console.log(res))
 
     // If tx submission was successful add these channels to our available channels list

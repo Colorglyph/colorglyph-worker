@@ -27,7 +27,7 @@ export class ChannelAccount {
     state: DurableObjectState
     id: DurableObjectId
     router: RouterType
-    available_channels: string[]
+    channels: string[]
 
     constructor(state: DurableObjectState, env: Env) {
         this.id = state.id
@@ -35,7 +35,7 @@ export class ChannelAccount {
         this.storage = state.storage
         this.state = state
         this.router = Router()
-        this.available_channels = []
+        this.channels = []
 
         this.router
             .get('/debug', this.debug.bind(this))
@@ -45,7 +45,7 @@ export class ChannelAccount {
             .all('*', () => error(404))
 
         state.blockConcurrencyWhile(async () => {
-            this.available_channels = await this.storage.get('available') || []
+            this.channels = await this.storage.get('channels') || []
         })
     }
     fetch(req: Request, ...extra: any[]) {
@@ -59,37 +59,25 @@ export class ChannelAccount {
     }
 
     async debug(req: IRequestStrict) {
-        const available = await this.storage.get('available')
-
         return json({
             id: this.id.toString(),
-            available,
+            channels: this.channels,
         })
     }
     async removeChannel(req: IRequestStrict) {
-        let channel_array: string[]
-
-        switch (req.params.type) {
-            case 'available':
-                channel_array = this.available_channels
-                break;
-            default:
-                throw new StatusError(404, 'Type not found')
-        }
-
-        const index = channel_array.findIndex((channel) => channel === req.params.secret)
+        const index = this.channels.findIndex((channel) => channel === req.params.secret)
 
         if (index === -1)
             throw new StatusError(404, 'Channel not found')
 
-        channel_array.splice(index, 1)
+        this.channels.splice(index, 1)
 
-        await this.storage.put(req.params.type, channel_array)
+        await this.storage.put('channels', this.channels)
 
         return status(204)
     }
     async takeChannel(req: IRequestStrict) {
-        if (!this.available_channels.length) {
+        if (!this.channels.length) {
             await this.env.CHANNEL_PROCESS.send({
                 type: 'create',
                 channel: Keypair.random().secret()
@@ -100,24 +88,26 @@ export class ChannelAccount {
         let channel: string
 
         // Loop over all available channels until we find one with sufficient balance to use
-        while (this.available_channels.length) {
-            channel = this.available_channels.shift()!
-            await this.storage.put('available', this.available_channels)
-
-            // TODO if the DO dies before `merge` or `return` we lose the channel
+        while (this.channels.length) {
+            channel = this.channels.shift()!
 
             const pubkey = Keypair.fromSecret(channel).publicKey()
 
             const res: any = await horizon.get(`/accounts/${pubkey}`)
             const { balance } = res.balances.find(({ asset_type }: any) => asset_type === 'native')
 
-            if (Number(balance) < 2) // if we have < {x} XLM we shouldn't use this channel account // TODO probably should be a bit more than 2 XLM
+            if (Number(balance) < 2) { // if we have < {x} XLM we shouldn't use this channel account // TODO probably should be a bit more than 2 XLM
                 await this.env.CHANNEL_PROCESS.send({
                     type: 'merge',
                     channel
                 })
-            else
+                await this.storage.put('channels', this.channels)
+            }
+                
+            else {
+                await this.storage.put('channels', this.channels) // NOTE if the return fails we'll lose the channel, but I think I'm fine with that
                 return text(channel)
+            }
         }
 
         // All available channels were low on balance so we're back to needing to create
@@ -128,14 +118,14 @@ export class ChannelAccount {
         throw new StatusError(400, 'No channels available')
     }
     async returnChannel(req: IRequestStrict) {
-        this.available_channels.push(req.params.secret)
+        this.channels.push(req.params.secret)
 
         // ensure uniqueness before saving
         // there are cases where a job could fail after returning the channel
         // and then on re-run it will try to return again causing a dupe
-        this.available_channels = [...new Set(this.available_channels)] // use Set to filter out dupes
+        this.channels = [...new Set(this.channels)] // use Set to filter out dupes
         
-        await this.storage.put('available', this.available_channels)
+        await this.storage.put('channels', this.channels) // NOTE if this return request fails for any reason we lose that channel
 
         return status(204)
     }
