@@ -12,13 +12,13 @@
     "@stellar/tsconfig": "^1.0.2",
     "@types/node": "^20.8.7",
     "typescript": "^5.2.2",
-    "wrangler": "^3.13.2"
+    "wrangler": "^3.14.0"
   },
   "dependencies": {
     "@lunapaint/png-codec": "^0.2.0",
     "buffer": "^6.0.3",
     "colorglyph-sdk": "file:./ext/colorglyph-sdk",
-    "itty-fetcher": "^0.9.3",
+    "itty-fetcher": "^0.9.4",
     "itty-router": "^4.0.23",
     "soroban-client": "file:./ext/js-soroban-client-1.0.0-beta.3"
   }
