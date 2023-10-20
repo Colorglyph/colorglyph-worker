@@ -36,8 +36,6 @@ import { paletteToBase64 } from '../utils/paletteToBase64'
 // do KV, R2 and Queue requests count towards requests and/or sub requests?
 // does the queue consumer count as a request or sub request?
 
-// TODO universally across all fetch methods if the body no longer exists for _anything_ other than getJob, mintJob and flushAll we should be exiting
-
 export class MintFactory {
     id: DurableObjectId
     env: Env
@@ -125,6 +123,7 @@ export class MintFactory {
         // if it does see if it's scraped
         // if it is re-mint it
         // if it's not, fail this request
+        const glyph = await this.env.GLYPHS.get(hash, 'arrayBuffer')
 
         let map = new Map()
 
@@ -143,22 +142,24 @@ export class MintFactory {
             }
         }
 
-        // Pre-gen the image and store in R2
-        const image = await paletteToBase64(body.palette, body.width)
+        if (!glyph) { // TEMP until we handle the scrape scenario better as the status of a glyph should change between minted and scraped (also probably means that status should be stored outside the GLYPH KV itself)
+            // Pre-gen the image and store in R2
+            const image = await paletteToBase64(body.palette, body.width)
 
-        // NOTE this should maybe happen in a queue task? idk it's a very small amount of data
-        // At the very least do it before queuing anything up in case the queue fails for some reason
-        await this.env.IMAGES.put(hash, image)
+            // NOTE this should maybe happen in a queue task? idk it's a very small amount of data
+            // At the very least do it before queuing anything up in case the queue fails for some reason
+            await this.env.IMAGES.put(hash, image)
 
-        // store in KV
-        // store the palette in the body
-        // store other info in the metadata
-        await this.env.GLYPHS.put(hash, new Uint8Array(body.palette), {
-            metadata: {
-                id: this.id.toString(),
-                width: body.width,
-            }
-        })
+            // store in KV
+            // store the palette in the body
+            // store other info in the metadata
+            await this.env.GLYPHS.put(hash, new Uint8Array(body.palette), {
+                metadata: {
+                    id: this.id.toString(),
+                    width: body.width,
+                }
+            })
+        }
 
         await this.storage.put('status', 'mining')
         await this.storage.put('mine_total', sanitizedPaletteArray.length)
@@ -199,25 +200,29 @@ export class MintFactory {
         return text(this.id.toString())
     }
     async markProgress(req: Request) {
-        // TODO this should exit early if the DO has been flushed at any point (storage body is gone)
+        const body: any = await this.storage.get('body')
 
-        const { mintJob: body, returnValueXDR }: {
+        // this should exit early if the DO has been flushed at any point (storage body is gone)
+        if (!body)
+            throw new StatusError(404, 'Body not found')
+
+        const { mintJob, returnValueXDR }: {
             mintJob: MintJob,
             returnValueXDR: string | undefined
         } = await req.json() as any
 
-        switch (body.type) {
+        switch (mintJob.type) {
             case 'mine':
-                await this.mineProgress()
+                await this.mineProgress(body)
                 break;
             case 'mint':
-                if (body.width)
-                    await this.mintComplete(returnValueXDR)
+                if (mintJob.width)
+                    await this.mintComplete(body, returnValueXDR)
                 else
-                    await this.mintProgress()
+                    await this.mintProgress(body)
                 break;
             default:
-                throw new StatusError(404, `Type ${body.type} not found`)
+                throw new StatusError(404, `Type ${mintJob.type} not found`)
         }
 
         return status(204)
@@ -242,7 +247,7 @@ export class MintFactory {
             return status(204)
     }
 
-    async mineProgress() {
+    async mineProgress(body: any) {
         const mineTotal: number = await this.storage.get('mine_total') || 0
         let mineProgress: number = await this.storage.get('mine_progress') || 0
 
@@ -254,7 +259,6 @@ export class MintFactory {
         }
 
         else {
-            const body: any = await this.storage.get('body')
             const sanitizedPaletteArray: [number, number[]][][] = []
 
             let count = 0
@@ -302,6 +306,7 @@ export class MintFactory {
             const mintJob = mintJobs.shift()!
 
             // await this.storage.put('mint_jobs', mintJobs)
+            // await this.storage.put('mint_job', mintJob)
 
             // TODO if the DO dies right here we lose the mintJob
 
@@ -312,7 +317,7 @@ export class MintFactory {
             await this.storage.put('mint_jobs', mintJobs)
         }
     }
-    async mintProgress() {
+    async mintProgress(body: any) {
         const mintTotal: number = await this.storage.get('mint_total') || 0
 
         // Look up the next `mint_job` and queue it then update the `mint_job` with that job removed
@@ -320,6 +325,7 @@ export class MintFactory {
         const mintJob = mintJobs.shift()
 
         // await this.storage.put('mint_jobs', mintJobs)
+        // await this.storage.put('mint_job', mintJob)
 
         // TODO if the DO dies right here we lose the mintJob
 
@@ -334,7 +340,6 @@ export class MintFactory {
 
         // Once we're all done minting issue one final mint with the width
         else {
-            const body: any = await this.storage.get('body')
             const mintJob: MintJob = {
                 id: this.id.toString(),
                 type: 'mint',
@@ -348,9 +353,7 @@ export class MintFactory {
             await this.storage.delete('mint_jobs')
         }
     }
-    async mintComplete(returnValueXDR: string | undefined) {
-        const body: any = await this.storage.get('body')
-
+    async mintComplete(body: any, returnValueXDR: string | undefined) {
         const returnValue = xdr.ScVal.fromXDR(returnValueXDR!, 'base64')
         const hash = returnValue.bytes().toString('hex')
 
