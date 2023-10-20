@@ -19,6 +19,8 @@ export async function writeErrorToR2(body: MintJob, tx: string | SorobanRpc.Simu
     }
 
     else {
+        console.log(tx.error)
+
         let events = ''
 
         for (const event of tx.events) {
