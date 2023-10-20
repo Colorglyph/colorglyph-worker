@@ -1,0 +1,1 @@
+* Save all mined colors in a KV (maybe D1)

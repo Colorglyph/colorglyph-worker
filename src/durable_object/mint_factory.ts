@@ -68,21 +68,21 @@ export class MintFactory {
     }
 
     async getJob(req: Request) {
+        const body: any = await this.storage.get('body')
         const status = await this.storage.get('status')
         const mineTotal = await this.storage.get('mine_total')
         const mineProgress = await this.storage.get('mine_progress')
         const mintTotal = await this.storage.get('mint_total')
         const mintProgress = await this.storage.get('mint_progress')
-        const hash = await this.storage.get('hash')
 
         return json({
             id: this.id.toString(),
+            hash: body.hash,
             status,
             mineTotal,
             mineProgress,
             mintTotal,
             mintProgress,
-            hash
         })
     }
     async mintJob(req: Request) {
@@ -213,7 +213,7 @@ export class MintFactory {
                     await this.mintProgress()
                 break;
             default:
-                throw new StatusError(404, 'Type not found')
+                throw new StatusError(404, `Type ${body.type} not found`)
         }
 
         return status(204)
@@ -297,11 +297,15 @@ export class MintFactory {
             // Kick off the first mint job
             const mintJob = mintJobs.shift()!
 
-            await this.storage.put('mint_jobs', mintJobs)
+            // await this.storage.put('mint_jobs', mintJobs)
 
             // TODO if the DO dies right here we lose the mintJob
 
             await this.env.TX_SEND.send(mintJob)
+
+            // TODO if the DO dies right here the mintJob will be duplicated
+
+            await this.storage.put('mint_jobs', mintJobs)
         }
     }
     async mintProgress() {
@@ -311,13 +315,17 @@ export class MintFactory {
         const mintJobs: MintJob[] = await this.storage.get('mint_jobs') || []
         const mintJob = mintJobs.shift()
 
-        await this.storage.put('mint_jobs', mintJobs)
+        // await this.storage.put('mint_jobs', mintJobs)
 
         // TODO if the DO dies right here we lose the mintJob
 
         if (mintJob) {
             await this.storage.put('mint_progress', mintTotal - mintJobs.length)
             await this.env.TX_SEND.send(mintJob)
+
+            // TODO if the DO dies right here the mintJob will be duplicated
+
+            await this.storage.put('mint_jobs', mintJobs)
         }
 
         // Once we're all done minting issue one final mint with the width
@@ -333,6 +341,7 @@ export class MintFactory {
 
             await this.storage.put('mint_progress', mintTotal)
             await this.env.TX_SEND.send(mintJob)
+            await this.storage.delete('mint_jobs')
         }
     }
     async mintComplete(returnValueXDR: string | undefined) {

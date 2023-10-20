@@ -38,20 +38,25 @@ export async function processQueue(batch: MessageBatch<any>, env: Env, ctx: Exec
                 case 'colorglyph-tx-send':
                     await sendTx(message, env, ctx)
                     break;
-        
+
                 case 'colorglyph-tx-get-dlq':
                     const id = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1')
                     const stub = env.CHANNEL_ACCOUNT.get(id)
-                    
+
                     // return the channel
-                    await stub.fetch(`http://fake-host/return/${message.body.channel}`, {method: 'PUT'})
-        
+                    await stub
+                        .fetch(`http://fake-host/return/${message.body.channel}`, { method: 'PUT' })
+                        .then((res) => {
+                            if (res.ok) return
+                            else throw new StatusError(res.status, res.statusText)
+                        })
+
                     // re-queue the tx
                     await env.TX_SEND.send(message.body)
                     break;
 
                 default:
-                    throw new StatusError(404, `Queue not found`)
+                    throw new StatusError(404, `Queue ${batch.queue} not found`)
             }
     }
 }

@@ -6,7 +6,6 @@ export async function channelProcess(messages: Message<ChannelJob>[], env: Env, 
     const id = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1')
     const stub = env.CHANNEL_ACCOUNT.get(id)
     const ocean_pubkey = oceanKp.publicKey()
-
     const res: any = await horizon.get(`/accounts/${ocean_pubkey}`)
     const source = new Account(ocean_pubkey, res.sequence)
     const created: string[] = []
@@ -19,6 +18,9 @@ export async function channelProcess(messages: Message<ChannelJob>[], env: Env, 
 
     for (const message of messages) {
         const body = message.body
+
+        // TODO save all channels to a KV so we absolutely never lose funded accounts
+        // use a cron task to keep that KV list pruned
 
         switch (body.type) {
             case 'create':
@@ -36,7 +38,7 @@ export async function channelProcess(messages: Message<ChannelJob>[], env: Env, 
                 }))
                 break;
             default:
-                throw new StatusError(404, `Type not found`)
+                throw new StatusError(404, `Type ${body.type} not found`)
         }
     }
 
@@ -59,7 +61,12 @@ export async function channelProcess(messages: Message<ChannelJob>[], env: Env, 
     // If tx submission was successful add these channels to our available channels list
     for (const channel of created) {
         try {
-            await stub.fetch(`http://fake-host/return/${channel}`, {method: 'PUT'})
+            await stub
+            .fetch(`http://fake-host/return/${channel}`, {method: 'PUT'})
+            .then((res) => {
+                if (res.ok) return
+                else throw new StatusError(res.status, res.statusText)
+            })
         } catch(err) {
             console.log(`!! we created channels that weren't saved !!`, channel)
             // TODO don't retry at this point, just save this error by any means possible so we get the channel

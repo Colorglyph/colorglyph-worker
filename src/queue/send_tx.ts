@@ -14,8 +14,8 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
     try {
         const body = message.body
 
-        // TODO everywhere we're using stub.fetch we don't have the nice error handling that fetcher gives us so we need to roll our own error handling. 
-        // Keep in mind though there are instances where failure shouldn't kill the whole task. Think returning a channel that's not currently busy for whatever reason
+        // NOTE everywhere we're using stub.fetch we don't have the nice error handling that fetcher gives us so we need to roll our own error handling. 
+        // Keep in mind though there may be instances where failure shouldn't kill the whole task. Think returning a channel that's not currently busy for whatever reason
         await stub
             .fetch('http://fake-host/take')
             .then(async (res) => {
@@ -38,7 +38,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                 operation = await mintOp(body, env)
                 break;
             default:
-                throw new StatusError(404, `Type not found`)
+                throw new StatusError(404, `Type ${body.type} not found`)
         }
 
         const source = await server.getAccount(pubkey)
@@ -64,6 +64,8 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
             case 'PENDING':
                 console.log(subTx)
 
+                message.ack()
+
                 await sleep(1) // TEMP during Phase 1. Throttle TX_SEND to 1 successfully sent tx per second
                 await env.TX_GET.send({
                     ...body, // send along the `body` in case we need to re-queue later
@@ -72,8 +74,20 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                 })
 
                 break;
-            default: 
+            default:
                 console.log(subTx)
+
+                switch (subTx.status) {
+                    case 'DUPLICATE':
+                        message.ack()
+                        break;
+                    case 'ERROR':
+                    case 'TRY_AGAIN_LATER':
+                        message.retry()
+                        break;
+                    default:
+                        throw new StatusError(404, `Status ${subTx.status} not found`)
+                }
 
                 // save the error
                 const existing = await env.ERRORS.get(body.id)
@@ -82,12 +96,6 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                 const data = encoder.encode(`${await existing?.text()}\n\n${subTx.hash}\n\n${subTx.errorResult?.toXDR('base64')}`)
 
                 await env.ERRORS.put(body.id, data)
-
-                if (subTx.status !== 'DUPLICATE') { // ERROR | TRY_AGAIN_LATER
-                    // this will ensure a retry
-                    // we throw vs `message.retry()` because we want to return the channel account
-                    throw new StatusError(400, subTx.status)
-                }
         }
     } catch (err) {
         console.error(err)
@@ -97,7 +105,12 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
         // return the channel account
         if (channel)
-            await stub.fetch(`http://fake-host/return/${channel}`, {method: 'PUT'})
+            await stub
+                .fetch(`http://fake-host/return/${channel}`, { method: 'PUT' })
+                .then((res) => {
+                    if (res.ok) return
+                    else throw new StatusError(res.status, res.statusText)
+                })
 
         // Wait 5 seconds before retrying
         // NOTE if we increase the messages per batch we'll need to move this sleep outside this fn so we don't compound sleeps

@@ -5,7 +5,6 @@ import { StatusError } from "itty-router"
 export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionContext): Promise<boolean> {
     const id = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1')
     const stub = env.CHANNEL_ACCOUNT.get(id)
-
     const body = message.body
     const hash = body.hash!
 
@@ -24,7 +23,12 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
                 console.log(res.status, hash)
 
                 // return the channel
-                await stub.fetch(`http://fake-host/return/${body.channel}`, { method: 'PUT' })
+                await stub
+                .fetch(`http://fake-host/return/${body.channel}`, { method: 'PUT' })
+                .then((res) => {
+                    if (res.ok) return
+                    else throw new StatusError(res.status, res.statusText)
+                })
 
                 // update job progress
                 const id = env.MINT_FACTORY.idFromString(body.id)
@@ -37,6 +41,10 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
                             mintJob: body,
                             returnValueXDR: res.returnValue?.toXDR('base64')
                         })
+                    })
+                    .then((res) => {
+                        if (res.ok) return
+                        else throw new StatusError(res.status, res.statusText)
                     })
                 
                 // if the batch fails further down we don't want to retry this message
@@ -53,7 +61,12 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
         case 'FAILED':
             try {
                 // return the channel
-                await stub.fetch(`http://fake-host/return/${body.channel}`, { method: 'PUT' })
+                await stub
+                .fetch(`http://fake-host/return/${body.channel}`, { method: 'PUT' })
+                .then((res) => {
+                    if (res.ok) return
+                    else throw new StatusError(res.status, res.statusText)
+                })
 
                 // TEMP while we wait for `soroban-client` -> `server.getTransaction` -> `FAILED` to send more complete data
                 const res_string = await server._getTransaction(hash)
@@ -81,6 +94,6 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
                 return true
             }
         default:
-            throw new StatusError(404, `Status not found`)
+            throw new StatusError(404, `Status ${res.status} not found`)
     }
 }
