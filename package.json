@@ -15,12 +15,12 @@
     "wrangler": "^3.14.0"
   },
   "dependencies": {
+    "@haverstack/axios-fetch-adapter": "^0.8.0",
     "@lunapaint/png-codec": "^0.2.0",
     "buffer": "^6.0.3",
     "colorglyph-sdk": "file:./ext/colorglyph-sdk",
     "itty-fetcher": "^0.9.4",
     "itty-router": "^4.0.23",
-    "soroban-client": "file:./ext/js-soroban-client-1.0.0-beta.3",
-    "stellar-sdk": "github:stellar/js-stellar-sdk#make-eventsource-optional"
+    "stellar-sdk": "file:./ext/js-stellar-sdk"
   }
 }

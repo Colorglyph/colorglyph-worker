@@ -1,5 +1,5 @@
-import * as SorobanClient from 'soroban-client';
-import { ContractSpec, Address } from 'soroban-client';
+import * as SorobanClient from 'stellar-sdk';
+import { ContractSpec, Address } from 'stellar-sdk';
 import { Buffer } from "buffer";
 import { invoke } from './invoke.js';
 import type { ResponseTypes, Wallet, ClassOptions } from './method-options.js'

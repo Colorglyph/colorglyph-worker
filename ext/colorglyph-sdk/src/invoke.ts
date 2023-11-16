@@ -1,5 +1,5 @@
-import * as SorobanClient from "soroban-client";
-import { SorobanRpc } from "soroban-client";
+import * as SorobanClient from "stellar-sdk";
+import { SorobanRpc } from "stellar-sdk";
 import type {
   Account,
   Memo,
@@ -7,7 +7,7 @@ import type {
   Operation,
   Transaction,
   xdr,
-} from "soroban-client";
+} from "stellar-sdk";
 import type {
   ClassOptions,
   MethodOptions,
@@ -23,7 +23,7 @@ export type Tx = Transaction<Memo<MemoType>, Operation[]>;
  */
 async function getAccount(
   wallet: Wallet,
-  server: SorobanClient.Server
+  server: SorobanRpc.Server
 ): Promise<Account | null> {
   if (!(await wallet.isConnected()) || !(await wallet.isAllowed())) {
     return null;
@@ -37,9 +37,9 @@ async function getAccount(
 
 export class NotImplementedError extends Error {}
 
-type Simulation = SorobanRpc.SimulateTransactionResponse;
-type SendTx = SorobanRpc.SendTransactionResponse;
-type GetTx = SorobanRpc.GetTransactionResponse;
+type Simulation = SorobanRpc.Api.SimulateTransactionResponse;
+type SendTx = SorobanRpc.Api.SendTransactionResponse;
+type GetTx = SorobanRpc.Api.GetTransactionResponse;
 
 // defined this way so typeahead shows full union, not named alias
 let someRpcResponse: Simulation | SendTx | GetTx;
@@ -84,7 +84,7 @@ export async function invoke<R extends ResponseTypes, T = string>({
 }: InvokeArgs<R, T>): Promise<T | string | SomeRpcResponse> {
   wallet = wallet ?? (await import("@stellar/freighter-api"));
   let parse = parseResultXdr;
-  const server = new SorobanClient.Server(rpcUrl, {
+  const server = new SorobanRpc.Server(rpcUrl, {
     allowHttp: rpcUrl.startsWith("http://"),
   });
   const walletAccount = await getAccount(wallet, server);
@@ -108,7 +108,7 @@ export async function invoke<R extends ResponseTypes, T = string>({
     .build();
   const simulated = await server.simulateTransaction(tx);
 
-  if (SorobanRpc.isSimulationError(simulated)) {
+  if (SorobanRpc.Api.isSimulationError(simulated)) {
     throw new Error(simulated.error);
   } else if (responseType === "simulated") {
     return simulated;
@@ -148,7 +148,7 @@ export async function invoke<R extends ResponseTypes, T = string>({
 
   tx = await signTx(
     wallet,
-    SorobanClient.assembleTransaction(tx, networkPassphrase, simulated).build(),
+    SorobanRpc.assembleTransaction(tx, simulated).build(),
     networkPassphrase
   );
 
@@ -206,7 +206,7 @@ export async function signTx(
 export async function sendTx(
   tx: Tx,
   secondsToWait: number,
-  server: SorobanClient.Server
+  server: SorobanRpc.Server
 ): Promise<SendTx | GetTx> {
   const sendTransactionResponse = await server.sendTransaction(tx);
 
@@ -225,7 +225,7 @@ export async function sendTx(
 
   while (
     Date.now() < waitUntil &&
-    getTransactionResponse.status === SorobanRpc.GetTransactionStatus.NOT_FOUND
+    getTransactionResponse.status === SorobanRpc.Api.GetTransactionStatus.NOT_FOUND
   ) {
     // Wait a beat
     await new Promise((resolve) => setTimeout(resolve, waitTime));
@@ -237,7 +237,7 @@ export async function sendTx(
     );
   }
 
-  if (getTransactionResponse.status === SorobanRpc.GetTransactionStatus.NOT_FOUND) {
+  if (getTransactionResponse.status === SorobanRpc.Api.GetTransactionStatus.NOT_FOUND) {
     console.error(
       `Waited ${
         secondsToWait
