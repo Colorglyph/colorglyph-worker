@@ -1,4 +1,4 @@
-import { SorobanRpc } from "soroban-client"
+import { SorobanRpc } from "stellar-sdk"
 import { server } from "./common"
 import { StatusError } from "itty-router"
 import { writeErrorToR2 } from "../utils/writeErrorToR2"
@@ -9,7 +9,7 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
     const body = message.body
     const hash = body.hash!
 
-    let res: SorobanRpc.GetTransactionResponse
+    let res: SorobanRpc.Api.GetTransactionResponse
 
     try {
         res = await server.getTransaction(hash)

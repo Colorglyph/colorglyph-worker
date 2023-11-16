@@ -1,4 +1,4 @@
-import { xdr, Keypair, Operation, TransactionBuilder, SorobanRpc, assembleTransaction } from 'soroban-client'
+import { xdr, Keypair, Operation, TransactionBuilder, SorobanRpc, Soroban } from 'stellar-sdk'
 import { server, networkPassphrase, sleep } from './common'
 import { getRandomNumber } from '../utils'
 import { mineOp } from './mine_op'
@@ -59,12 +59,12 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
         // https://stellarfoundation.slack.com/archives/D01LJLND8S1/p1697820475369859 
         const simTx = await server.simulateTransaction(preTx)
 
-        if (!SorobanRpc.isSimulationSuccess(simTx)) { // Error, Raw, Restore
+        if (!SorobanRpc.Api.isSimulationSuccess(simTx)) { // Error, Raw, Restore
             await writeErrorToR2(body, simTx, env)
             throw new StatusError(400, 'Simulation failed')
         }
 
-        const readyTx = assembleTransaction(preTx, networkPassphrase, simTx).build()
+        const readyTx = SorobanRpc.assembleTransaction(preTx, simTx).build()
 
         readyTx.sign(kp)
 

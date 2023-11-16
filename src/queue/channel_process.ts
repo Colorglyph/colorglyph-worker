@@ -1,6 +1,6 @@
 import { StatusError } from "itty-router"
 import { horizon, networkPassphrase, oceanKp } from "./common"
-import { Account, Keypair, Operation, TimeoutInfinite, Transaction, TransactionBuilder } from "soroban-client"
+import { Account, Keypair, Operation, TimeoutInfinite, Transaction, TransactionBuilder } from "stellar-sdk"
 
 // TODO a lot rides on the ocean pubkey always having available funds
 // there should be some robust alerts for monitoring the balance of the ocean account

@@ -1,5 +1,5 @@
 import { StatusError } from "itty-router"
-import { Account, Keypair, Operation, SorobanRpc, StrKey, TimeoutInfinite, TransactionBuilder, authorizeEntry, xdr } from "soroban-client"
+import { Account, Keypair, Operation, SorobanRpc, StrKey, TimeoutInfinite, TransactionBuilder, authorizeEntry, xdr } from "stellar-sdk"
 import { networkPassphrase, server } from "./common"
 import { writeErrorToR2 } from "../utils/writeErrorToR2"
 
@@ -20,7 +20,7 @@ export async function authorizeOperation(
 
     const simTx = await server.simulateTransaction(tx)
 
-    if (!SorobanRpc.isSimulationSuccess(simTx)) { // Error, Raw, Restore
+    if (!SorobanRpc.Api.isSimulationSuccess(simTx)) { // Error, Raw, Restore
         await writeErrorToR2(body, simTx, env)
         throw new StatusError(400, 'Simulation failed')
     }

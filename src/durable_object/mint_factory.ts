@@ -12,7 +12,7 @@ import {
     StatusError,
     text,
 } from 'itty-router'
-import { xdr } from 'soroban-client'
+import { xdr } from 'stellar-sdk'
 import { chunkArray, getGlyphHash } from '../utils'
 import { paletteToBase64 } from '../utils/paletteToBase64'
 
@@ -95,7 +95,7 @@ export class MintFactory {
         // one account for the progressive mint account and the other for the final destination address
         // the one is a secret key and the other is a public key
         // this may require the ability to set the miner address separate from the signing account paying the mining fee
-        // there's an address that pays the mining fee, there's an address that is the miner who will recieve royalties, and there's the address that receives the final minted glyph
+        // there's an address that pays the mining fee, there's an address that is the miner who will receive royalties, and there's the address that receives the final minted glyph
         // ---
         // this is the destination for the glyph and the miner for the colors
         // this is the address that pays the mining fee

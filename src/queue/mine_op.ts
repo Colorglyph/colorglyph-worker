@@ -1,4 +1,4 @@
-import { Keypair } from 'soroban-client'
+import { Keypair } from 'stellar-sdk'
 import { Contract, RawContract } from './common'
 import { sortMapKeys } from '../utils'
 import { authorizeOperation } from './authorize_op'

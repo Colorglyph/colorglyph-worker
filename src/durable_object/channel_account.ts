@@ -8,7 +8,7 @@ import {
     StatusError,
     text,
 } from 'itty-router'
-import { Keypair } from 'soroban-client'
+import { Keypair } from 'stellar-sdk'
 import { fetcher } from 'itty-fetcher'
 
 const min_balance = 2

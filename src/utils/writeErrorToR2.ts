@@ -1,9 +1,9 @@
-import { SorobanRpc } from "soroban-client"
+import { SorobanRpc } from "stellar-sdk"
 import { server } from "../queue/common"
 
 const encoder = new TextEncoder()
 
-export async function writeErrorToR2(body: MintJob, tx: string | SorobanRpc.SimulateTransactionErrorResponse, env: Env) {
+export async function writeErrorToR2(body: MintJob, tx: string | SorobanRpc.Api.SimulateTransactionErrorResponse, env: Env) {
     const existing = await env.ERRORS.get(body.id)
 
     let data: Uint8Array

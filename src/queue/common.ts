@@ -1,6 +1,6 @@
 import { Contract as ColorglyphContract, networks } from 'colorglyph-sdk'
 import { fetcher } from 'itty-fetcher'
-import { Keypair, Networks, Transaction, Server, Contract as SorobanClientContract } from 'soroban-client'
+import { Keypair, Networks, Transaction, SorobanRpc, Contract as SorobanClientContract,  } from 'stellar-sdk'
 
 export const rpcUrl = 'https://rpc-futurenet.stellar.org'
 export const networkPassphrase = Networks.FUTURENET
@@ -9,7 +9,7 @@ export const oceanKp = Keypair.fromSecret('SAJR6ISVN7C5AP6ICU7NWP2RZUSSCIG3FMPD6
 export const XLM = 'CB64D3G7SM2RTH6JSGG34DDTFTQ5CFDKVDZJZSODMCX4NJ2HV2KN7OHT'
 
 export const horizon = fetcher({ base: 'https://horizon-futurenet.stellar.org' })
-export const server = new Server(rpcUrl)
+export const server = new SorobanRpc.Server(rpcUrl)
 
 export const RawContract = new SorobanClientContract(networks.futurenet.contractId)
 
