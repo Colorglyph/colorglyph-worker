@@ -4,9 +4,9 @@ import { sortMapKeys } from '../utils'
 import { authorizeOperation } from './authorize_op'
 
 export async function mintOp(body: MintJob, env: Env) {
-    const kp = Keypair.fromSecret(body.secret)
-    const pubkey = kp.publicKey()
-    const { contract: Colorglyph } = new Contract(kp)
+    const keypair = Keypair.fromSecret(body.secret)
+    const pubkey = keypair.publicKey()
+    const { contract: Colorglyph } = new Contract(keypair)
 
     // TODO requires the colors being used to mint have been mined by the secret (pubkey hardcoded)
     const mintMap = body.palette.length
@@ -25,5 +25,5 @@ export async function mintOp(body: MintJob, env: Env) {
         ...args
     )
 
-    return authorizeOperation(body, operation, kp, env)
+    return authorizeOperation(body, operation, keypair, env)
 }

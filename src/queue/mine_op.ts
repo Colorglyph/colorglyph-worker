@@ -4,9 +4,9 @@ import { sortMapKeys } from '../utils'
 import { authorizeOperation } from './authorize_op'
 
 export async function mineOp(body: MintJob, env: Env) {
-    const kp = Keypair.fromSecret(body.secret)
-    const pubkey = kp.publicKey()
-    const { contract: Colorglyph } = new Contract(kp)
+    const keypair = Keypair.fromSecret(body.secret)
+    const pubkey = keypair.publicKey()
+    const { contract: Colorglyph } = new Contract(keypair)
 
     const mineMap = new Map((body.palette as [number, number][]).map(([color, amount]) => [color, amount]))
 
@@ -22,5 +22,5 @@ export async function mineOp(body: MintJob, env: Env) {
         ...args
     )
 
-    return authorizeOperation(body, operation, kp, env)
+    return authorizeOperation(body, operation, keypair, env)
 }

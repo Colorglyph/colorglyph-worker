@@ -1,10 +1,12 @@
 import { xdr, Keypair, Operation, TransactionBuilder, SorobanRpc, Soroban } from 'stellar-sdk'
 import { server, networkPassphrase, sleep } from './common'
-import { getRandomNumber } from '../utils'
+import { getRandomNumber, sortMapKeys } from '../utils'
 import { mineOp } from './mine_op'
 import { mintOp } from './mint_op'
 import { StatusError } from 'itty-router'
 import { writeErrorToR2 } from '../utils/writeErrorToR2'
+import { Contract } from './common'
+import { AssembledTransaction } from 'colorglyph-sdk'
 
 export async function sendTx(message: Message<MintJob>, env: Env, ctx: ExecutionContext) {
     const id = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1') // Hard coded because we need to resolve to the same DO app wide
@@ -26,30 +28,53 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                     throw await res.json()
             })
 
-        const kp = Keypair.fromSecret(channel)
-        const pubkey = kp.publicKey()
+        const channel_keypair = Keypair.fromSecret(channel)
+        const { contract: Colorglyph } = new Contract(channel_keypair)
+        const keypair = Keypair.fromSecret(body.secret)
+        const pubkey = keypair.publicKey()
 
-        let operation: xdr.Operation<Operation.InvokeHostFunction>
+        let readyTx: AssembledTransaction<any>
+
+        // let operation: xdr.Operation<Operation.InvokeHostFunction>
 
         switch (body.type) {
             case 'mine':
-                operation = await mineOp(body, env)
+                const mineMap = new Map((body.palette as [number, number][]).map(([color, amount]) => [color, amount]))
+
+                readyTx = await Colorglyph.colorsMine({
+                    source: pubkey,
+                    miner: undefined,
+                    to: undefined,
+                    colors: new Map(sortMapKeys(mineMap))
+                })
                 break;
             case 'mint':
-                operation = await mintOp(body, env)
+                // TODO requires the colors being used to mint have been mined by the secret (pubkey hardcoded)
+                const mintMap = body.palette.length
+                    ? new Map([[pubkey, sortMapKeys(new Map(body.palette as [number, number[]][]))]])
+                    : new Map()
+
+                readyTx = await Colorglyph.glyphMint({
+                    minter: pubkey,
+                    to: undefined,
+                    colors: mintMap,
+                    width: body.width,
+                })
                 break;
             default:
                 throw new StatusError(404, `Type ${body.type} not found`)
         }
 
-        const source = await server.getAccount(pubkey)
-        const preTx = new TransactionBuilder(source, {
-            fee: (getRandomNumber(1_000_000, 10_000_000)).toString(), // TODO we should be smarter about this (using random so at least we have some variance)
-            networkPassphrase,
-        })
-            .addOperation(operation)
-            .setTimeout(30) // 30 seconds. Just needs to be less than the NOT_FOUND retry limit so we never double send
-            .build()
+        // await readyTx.signAuthEntries()
+
+        // const source = await server.getAccount(pubkey)
+        // const preTx = new TransactionBuilder(source, {
+        //     fee: (getRandomNumber(1_000_000, 10_000_000)).toString(), // TODO we should be smarter about this (using random so at least we have some variance)
+        //     networkPassphrase,
+        // })
+        //     .addOperation(operation)
+        //     .setTimeout(30) // 30 seconds. Just needs to be less than the NOT_FOUND retry limit so we never double send
+        //     .build()
 
         // TEMP we likely don't need to simulate again but currently there are cases with multiauth where the initial simulation doesn't account for the authorized operation 
         // https://github.com/stellar/rs-soroban-env/issues/1125
@@ -57,18 +82,21 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
         // TEMP we're also simulating vs preparing due to lack of error handling in the prepareTransaction method
         // https://stellarfoundation.slack.com/archives/D01LJLND8S1/p1697820475369859 
-        const simTx = await server.simulateTransaction(preTx)
+        // const simTx = await server.simulateTransaction(preTx)
 
-        if (!SorobanRpc.Api.isSimulationSuccess(simTx)) { // Error, Raw, Restore
-            await writeErrorToR2(body, simTx, env)
-            throw new StatusError(400, 'Simulation failed')
-        }
+        // if (!SorobanRpc.Api.isSimulationSuccess(simTx)) { // Error, Raw, Restore
+        //     await writeErrorToR2(body, simTx, env)
+        //     throw new StatusError(400, 'Simulation failed')
+        // }
 
-        const readyTx = SorobanRpc.assembleTransaction(preTx, simTx).build()
+        // const readyTx = SorobanRpc.assembleTransaction(preTx, simTx).build()
 
-        readyTx.sign(kp)
+        // readyTx.raw.sign(channel_keypair)
 
-        const subTx = await server.sendTransaction(readyTx)
+        // if ((await readyTx.needsNonInvokerSigningBy()).length)
+        //     await readyTx.signAuthEntries()
+
+        const subTx = await server.sendTransaction(readyTx.raw)
 
         switch (subTx.status) {
             case 'PENDING':

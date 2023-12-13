@@ -2,14 +2,16 @@ import { StatusError } from "itty-router"
 import { Account, Keypair, Operation, SorobanRpc, StrKey, TimeoutInfinite, TransactionBuilder, authorizeEntry, xdr } from "stellar-sdk"
 import { networkPassphrase, server } from "./common"
 import { writeErrorToR2 } from "../utils/writeErrorToR2"
+import { Buffer } from 'buffer'
 
 export async function authorizeOperation(
     body: MintJob, 
     operation: xdr.Operation<Operation.InvokeHostFunction>, 
-    kp: Keypair, 
+    keypair: Keypair, 
     env: Env
 ) {
     const source = new Account(StrKey.encodeEd25519PublicKey(Buffer.alloc(32)), '0') // Need to use a random source other than pubkey so the credientals are filled in the `authorizeEntry`
+    
     const tx = new TransactionBuilder(source, {
         fee: '0',
         networkPassphrase,
@@ -31,7 +33,7 @@ export async function authorizeOperation(
     // Because we're doing signing here it may make sense to keep this in a queue vs back in the DO
     const authEntry = await authorizeEntry(
         simTx.result!.auth[0],
-        kp,
+        keypair,
         validUntilLedger,
         networkPassphrase,
     )
