@@ -2,9 +2,9 @@
     "version": "0.0.0",
     "name": "colorglyph-sdk",
     "dependencies": {
-        "@stellar/freighter-api": "1.5.1",
+        "@stellar/freighter-api": "1.7.1",
         "buffer": "6.0.3",
-        "stellar-sdk": "file:../js-stellar-sdk"
+        "stellar-sdk": "github:tyvdh/js-stellar-sdk#make-eventsource-optional"
     },
     "scripts": {
         "build": "node ./scripts/build.mjs"
@@ -15,6 +15,6 @@
     },
     "typings": "dist/types/index.d.ts",
     "devDependencies": {
-        "typescript": "5.1.6"
+        "typescript": "5.3.3"
     }
 }

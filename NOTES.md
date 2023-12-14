@@ -8,3 +8,5 @@
 * Consider hooking up Sentry for error logging
 
 * Queue retries send the message to the front, which is a problem for tx-get if the NOT_FOUND is unlikely to ever find. We're just in a pointless waiting game for 60 seconds (5 seconds * 12 retries)
+
+* I'm still not confident we aren't losing channel accounts. A) let's check that logic and B) let's save all channel accounts to a KV that periodically merges back the the ocean account
