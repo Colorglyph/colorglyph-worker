@@ -1,7 +1,7 @@
 // TEMP fine tune these as we get closer to launch. I hear return/event KB may be increased
-const maxMineSize = 10
-const maxMintSize = 10
-const maxMintCount = 1000 // 50 // TEMP with the event updates I actually don't think we need this restriction anymore
+const maxMineSize = 17 // down from 18 due to extra signer // 10
+const maxMintSize = 18 // down from 19 due to extra signer // 10
+// const maxMintCount = 1000 // 50 // TEMP with the event updates I actually don't think we need this restriction anymore
 
 import {
     error,
@@ -260,7 +260,7 @@ export class MintFactory {
                 if (
                     index === body.palette.length - 1
                     || map.size >= maxMintSize
-                    || count >= maxMintCount
+                    // || count >= maxMintCount
                 ) {
                     sanitizedPaletteArray.push([...map.entries()])
                     count = 0

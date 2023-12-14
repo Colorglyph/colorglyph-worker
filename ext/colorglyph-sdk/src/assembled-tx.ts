@@ -297,16 +297,17 @@ export class AssembledTransaction<T> {
   }
 
   getStorageExpiration = async () => {
-    const key = new Contract(this.options.contractId).getFootprint()[1]
-
-    const expirationKey = xdr.LedgerKey.ttl(
-      new xdr.LedgerKeyTtl({ keyHash: hash(key.toXDR()) }),
+    const entryRes = await this.server.getLedgerEntries(
+      new Contract(this.options.contractId).getFootprint()
     )
 
-    const entryRes = await this.server.getLedgerEntries(expirationKey)
-    if (!(entryRes.entries && entryRes.entries.length)) throw new Error('failed to get ledger entry')
-
-    return entryRes.entries[0].val.ttl().liveUntilLedgerSeq()
+    if (
+      !entryRes.entries ||
+      !entryRes.entries.length ||
+      !entryRes.entries[0].liveUntilLedgerSeq
+    ) throw new Error('failed to get ledger entry')
+    
+    return entryRes.entries[0].liveUntilLedgerSeq
   }
 
   /**
@@ -401,16 +402,16 @@ export class AssembledTransaction<T> {
      * contract's current `persistent` storage expiration date/ledger
      * number/block.
      */
-    expiration: number | Promise<number> = this.getStorageExpiration()
+    wallet: Wallet | Promise<Wallet> = this.getWallet(),
+    expiration: number | Promise<number> = this.getStorageExpiration(),
   ): Promise<void> => {
     if (!this.raw) throw new Error('Transaction has not yet been assembled or simulated')
     const needsNonInvokerSigningBy = await this.needsNonInvokerSigningBy()
 
     if (!needsNonInvokerSigningBy) throw new NoUnsignedNonInvokerAuthEntriesError('No unsigned non-invoker auth entries; maybe you already signed?')
-    const publicKey = await this.getPublicKey()
+    const publicKey = (await (await wallet).getUserInfo()).publicKey
     if (!publicKey) throw new Error('Could not get public key from wallet; maybe Freighter is not signed in?')
     if (needsNonInvokerSigningBy.indexOf(publicKey) === -1) throw new Error(`No auth entries for public key "${publicKey}"`)
-    const wallet = await this.getWallet()
 
     const rawInvokeHostFunctionOp = this.raw
       .operations[0] as Operation.InvokeHostFunction
@@ -438,7 +439,7 @@ export class AssembledTransaction<T> {
       authEntries[i] = await authorizeEntry(
         entry,
         async preimage => Buffer.from(
-          await wallet.signAuthEntry(preimage.toXDR('base64')),
+          await (await wallet).signAuthEntry(preimage.toXDR('base64')),
           'base64'
         ),
         await expiration,

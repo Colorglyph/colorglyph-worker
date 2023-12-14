@@ -1,5 +1,5 @@
-import { xdr, Keypair, Operation, TransactionBuilder, SorobanRpc, Soroban } from 'stellar-sdk'
-import { server, networkPassphrase, sleep } from './common'
+import { xdr, Keypair, Operation, TransactionBuilder, SorobanRpc, Soroban, Transaction, Networks } from 'stellar-sdk'
+import { server, networkPassphrase, sleep, Wallet } from './common'
 import { getRandomNumber, sortMapKeys } from '../utils'
 import { mineOp } from './mine_op'
 import { mintOp } from './mint_op'
@@ -33,20 +33,21 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
         const keypair = Keypair.fromSecret(body.secret)
         const pubkey = keypair.publicKey()
 
-        let readyTx: AssembledTransaction<any>
+        let preTx: AssembledTransaction<any>
 
         // let operation: xdr.Operation<Operation.InvokeHostFunction>
+        const fee = getRandomNumber(5_000_000, 10_000_000) // TODO we should be smarter about this (using random so at least we have some variance)
 
         switch (body.type) {
             case 'mine':
                 const mineMap = new Map((body.palette as [number, number][]).map(([color, amount]) => [color, amount]))
 
-                readyTx = await Colorglyph.colorsMine({
+                preTx = await Colorglyph.colorsMine({
                     source: pubkey,
                     miner: undefined,
                     to: undefined,
                     colors: new Map(sortMapKeys(mineMap))
-                })
+                }, { fee })
                 break;
             case 'mint':
                 // TODO requires the colors being used to mint have been mined by the secret (pubkey hardcoded)
@@ -54,18 +55,16 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                     ? new Map([[pubkey, sortMapKeys(new Map(body.palette as [number, number[]][]))]])
                     : new Map()
 
-                readyTx = await Colorglyph.glyphMint({
+                preTx = await Colorglyph.glyphMint({
                     minter: pubkey,
                     to: undefined,
                     colors: mintMap,
                     width: body.width,
-                })
+                }, { fee })
                 break;
             default:
                 throw new StatusError(404, `Type ${body.type} not found`)
         }
-
-        // await readyTx.signAuthEntries()
 
         // const source = await server.getAccount(pubkey)
         // const preTx = new TransactionBuilder(source, {
@@ -91,12 +90,24 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
         // const readyTx = SorobanRpc.assembleTransaction(preTx, simTx).build()
 
-        // readyTx.raw.sign(channel_keypair)
+        const currentLedger = await server.getLatestLedger()
+        const validUntilLedger = currentLedger.sequence + 12 // 1 minute of ledgers
 
-        // if ((await readyTx.needsNonInvokerSigningBy()).length)
-        //     await readyTx.signAuthEntries()
+        await preTx.signAuthEntries(new Wallet(keypair), validUntilLedger)
 
-        const subTx = await server.sendTransaction(readyTx.raw)
+        const ewTx = new Transaction(preTx.raw.toXDR(), Networks.FUTURENET)
+        const simTx = await server.simulateTransaction(ewTx)
+
+        if (!SorobanRpc.Api.isSimulationSuccess(simTx)) { // Error, Raw, Restore
+            await writeErrorToR2(body, simTx, env)
+            throw new StatusError(400, 'Simulation failed')
+        }
+
+        const readyTx = SorobanRpc.assembleTransaction(ewTx, simTx).build()
+
+        readyTx.sign(channel_keypair)
+
+        const subTx = await server.sendTransaction(readyTx)
 
         switch (subTx.status) {
             case 'PENDING':
@@ -113,15 +124,17 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
                 break;
             default:
-                console.log(subTx)
+                console.log(JSON.stringify(subTx, null, 2))
 
                 switch (subTx.status) {
                     case 'DUPLICATE':
                         message.ack()
+                        // TODO I think we lose the channel account in this case
                         break;
                     case 'ERROR':
                     case 'TRY_AGAIN_LATER':
                         message.retry()
+                        // TODO I think we lose the channel account in this case
                         break;
                     default:
                         throw new StatusError(404, `Status ${subTx.status} not found`)
@@ -129,6 +142,10 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
                 // save the error
                 await writeErrorToR2(body, subTx.hash, env)
+
+                // ensure the channel account is returned to the pool
+                // NOTE not sure this is wise or not. I do know without it we'll lose the channel account
+                throw new StatusError(400, 'Transaction failed')
         }
     } catch (err) {
         console.error(err)
