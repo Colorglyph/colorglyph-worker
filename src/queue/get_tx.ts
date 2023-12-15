@@ -25,11 +25,11 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
 
                 // return the channel
                 await stub
-                .fetch(`http://fake-host/return/${body.channel}`, { method: 'PUT' })
-                .then((res) => {
-                    if (res.ok) return
-                    else throw new StatusError(res.status, res.statusText)
-                })
+                    .fetch(`http://fake-host/return/${body.channel}`, { method: 'PUT' })
+                    .then((res) => {
+                        if (res.ok) return
+                        else throw new StatusError(res.status, res.statusText)
+                    })
 
                 // update job progress
                 const id = env.MINT_FACTORY.idFromString(body.id)
@@ -47,7 +47,7 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
                         if (res.ok) return
                         else throw new StatusError(res.status, res.statusText)
                     })
-                
+
                 // if the batch fails further down we don't want to retry this message
                 message.ack()
                 return false
@@ -63,11 +63,11 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
             try {
                 // return the channel
                 await stub
-                .fetch(`http://fake-host/return/${body.channel}`, { method: 'PUT' })
-                .then((res) => {
-                    if (res.ok) return
-                    else throw new StatusError(res.status, res.statusText)
-                })
+                    .fetch(`http://fake-host/return/${body.channel}`, { method: 'PUT' })
+                    .then((res) => {
+                        if (res.ok) return
+                        else throw new StatusError(res.status, res.statusText)
+                    })
 
                 // save the error
                 await writeErrorToR2(body, hash, env)
@@ -80,7 +80,7 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
                 message.ack()
                 return false
             } catch {
-                message.retry()
+                message.retry() // safe because the tx will continue to return FAILED, this isn't a tx retry, just an away retry to ensure the channel is returned and the error is logged
                 return true
             }
         default:

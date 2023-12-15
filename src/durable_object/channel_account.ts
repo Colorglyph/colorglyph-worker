@@ -92,7 +92,9 @@ export class ChannelAccount {
 
             const pubkey = Keypair.fromSecret(channel).publicKey()
 
-            const res: any = await horizon.get(`/accounts/${pubkey}`)
+            const res: any = await horizon
+                .get(`/accounts/${pubkey}`)
+                .catch(() => ({ balances: [{ asset_type: 'native', balance: '0' }] })) // TODO this should be smarter but if a channel account is a 404 (like during a testnet/futurenet reset) we should slot the channel for removal
             const { balance } = res.balances.find(({ asset_type }: any) => asset_type === 'native')
 
             if (Number(balance) < min_balance) { // if we have < {x} XLM we shouldn't use this channel account

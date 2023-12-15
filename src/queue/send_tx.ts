@@ -66,42 +66,26 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                 throw new StatusError(404, `Type ${body.type} not found`)
         }
 
-        // const source = await server.getAccount(pubkey)
-        // const preTx = new TransactionBuilder(source, {
-        //     fee: (getRandomNumber(1_000_000, 10_000_000)).toString(), // TODO we should be smarter about this (using random so at least we have some variance)
-        //     networkPassphrase,
-        // })
-        //     .addOperation(operation)
-        //     .setTimeout(30) // 30 seconds. Just needs to be less than the NOT_FOUND retry limit so we never double send
-        //     .build()
-
-        // TEMP we likely don't need to simulate again but currently there are cases with multiauth where the initial simulation doesn't account for the authorized operation 
-        // https://github.com/stellar/rs-soroban-env/issues/1125
-        // this leads to insufficient resource allocation
-
-        // TEMP we're also simulating vs preparing due to lack of error handling in the prepareTransaction method
-        // https://stellarfoundation.slack.com/archives/D01LJLND8S1/p1697820475369859 
-        // const simTx = await server.simulateTransaction(preTx)
-
-        // if (!SorobanRpc.Api.isSimulationSuccess(simTx)) { // Error, Raw, Restore
-        //     await writeErrorToR2(body, simTx, env)
-        //     throw new StatusError(400, 'Simulation failed')
-        // }
-
-        // const readyTx = SorobanRpc.assembleTransaction(preTx, simTx).build()
-
         const currentLedger = await server.getLatestLedger()
         const validUntilLedger = currentLedger.sequence + 12 // 1 minute of ledgers
 
-        await preTx.signAuthEntries(new Wallet(keypair), validUntilLedger)
+        if ((await preTx.needsNonInvokerSigningBy()).length)
+            await preTx.signAuthEntries(new Wallet(keypair), validUntilLedger)
 
-        const ewTx = new Transaction(preTx.raw.toXDR(), Networks.FUTURENET)
-        const simTx = await server.simulateTransaction(ewTx)
+        const simTx = await server.simulateTransaction(preTx.raw)
 
         if (!SorobanRpc.Api.isSimulationSuccess(simTx)) { // Error, Raw, Restore
             await writeErrorToR2(body, simTx, env)
             throw new StatusError(400, 'Simulation failed')
         }
+
+        simTx.transactionData.setResources(
+            preTx.simulationData.transactionData.resources().instructions(),
+            preTx.simulationData.transactionData.resources().readBytes() + 188, // TODO <-- be smarter about this. We only need it if we simulated a key that didn't exist in a prior submission but will exist in this submission (there's a key overlap where not every color is unique)
+            preTx.simulationData.transactionData.resources().writeBytes(),
+        )
+
+        const ewTx = new Transaction(preTx.raw.toXDR(), Networks.FUTURENET)
 
         const readyTx = SorobanRpc.assembleTransaction(ewTx, simTx).build()
 
