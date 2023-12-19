@@ -1,8 +1,6 @@
-import { xdr, Keypair, Operation, TransactionBuilder, SorobanRpc, Soroban, Transaction, Networks } from 'stellar-sdk'
-import { server, networkPassphrase, sleep, Wallet } from './common'
+import { Keypair, SorobanRpc, Transaction, Networks } from 'stellar-sdk'
+import { server, sleep, Wallet } from './common'
 import { getRandomNumber, sortMapKeys } from '../utils'
-import { mineOp } from './mine_op'
-import { mintOp } from './mint_op'
 import { StatusError } from 'itty-router'
 import { writeErrorToR2 } from '../utils/writeErrorToR2'
 import { Contract } from './common'
@@ -32,11 +30,9 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
         const { contract: Colorglyph } = new Contract(channel_keypair)
         const keypair = Keypair.fromSecret(body.secret)
         const pubkey = keypair.publicKey()
+        const fee = getRandomNumber(9_000_000, 10_000_000) // TODO we should be smarter about this (using random so at least we have some variance)
 
         let preTx: AssembledTransaction<any>
-
-        // let operation: xdr.Operation<Operation.InvokeHostFunction>
-        const fee = getRandomNumber(5_000_000, 10_000_000) // TODO we should be smarter about this (using random so at least we have some variance)
 
         switch (body.type) {
             case 'mine':
@@ -79,15 +75,15 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
             throw new StatusError(400, 'Simulation failed')
         }
 
-        simTx.transactionData.setResources(
-            preTx.simulationData.transactionData.resources().instructions(),
-            preTx.simulationData.transactionData.resources().readBytes() + 188, // TODO <-- be smarter about this. We only need it if we simulated a key that didn't exist in a prior submission but will exist in this submission (there's a key overlap where not every color is unique)
-            preTx.simulationData.transactionData.resources().writeBytes(),
-        )
+        if (body.type === 'mine')
+            simTx.transactionData.setResources(
+                preTx.simulationData.transactionData.resources().instructions(),
+                preTx.simulationData.transactionData.resources().readBytes() + 188, // TODO <-- be smarter about this. We only need it if we simulated a key that didn't exist in a prior submission but will exist in this submission (there's a key overlap where not every color is unique)
+                preTx.simulationData.transactionData.resources().writeBytes(),
+            )
 
-        const ewTx = new Transaction(preTx.raw.toXDR(), Networks.FUTURENET)
-
-        const readyTx = SorobanRpc.assembleTransaction(ewTx, simTx).build()
+        const tempTx = new Transaction(preTx.raw.toXDR(), Networks.FUTURENET)
+        const readyTx = SorobanRpc.assembleTransaction(tempTx, simTx).build()
 
         readyTx.sign(channel_keypair)
 
@@ -108,17 +104,15 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
                 break;
             default:
-                console.log(JSON.stringify(subTx, null, 2))
+                console.log(subTx)
 
                 switch (subTx.status) {
                     case 'DUPLICATE':
                         message.ack()
-                        // TODO I think we lose the channel account in this case
                         break;
                     case 'ERROR':
                     case 'TRY_AGAIN_LATER':
                         message.retry()
-                        // TODO I think we lose the channel account in this case
                         break;
                     default:
                         throw new StatusError(404, `Status ${subTx.status} not found`)
@@ -129,7 +123,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
                 // ensure the channel account is returned to the pool
                 // NOTE not sure this is wise or not. I do know without it we'll lose the channel account
-                throw new StatusError(400, 'Transaction failed')
+                throw new StatusError(400, `Transaction ${subTx.status} error`)
         }
     } catch (err) {
         console.error(err)
