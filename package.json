@@ -16,10 +16,10 @@
     "stellar-sdk": "github:tyvdh/js-stellar-sdk#make-eventsource-optional"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20231016.0",
+    "@cloudflare/workers-types": "^4.20231218.0",
     "@stellar/tsconfig": "^1.0.2",
-    "@types/node": "^20.8.7",
-    "typescript": "^5.2.2",
-    "wrangler": "^3.14.0"
+    "@types/node": "^20.10.5",
+    "typescript": "^5.3.3",
+    "wrangler": "^3.21.0"
   }
 }
