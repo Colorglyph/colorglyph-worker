@@ -327,6 +327,7 @@ export class MintFactory {
                     id: this.id.toString(),
                     fee: feeCharged,
                     width: body.width,
+                    length: body.palette.length,
                     status: 'minted', // system oriented. i.e. `minted|scraped`
                     mishash: body.hash !== hash ? body.hash : undefined, // realistically this should never happen, but if it does we need to save both hashes
                 }
