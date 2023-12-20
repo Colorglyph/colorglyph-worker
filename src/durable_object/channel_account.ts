@@ -9,10 +9,9 @@ import {
     text,
 } from 'itty-router'
 import { Keypair } from 'stellar-sdk'
-import { fetcher } from 'itty-fetcher'
+import { horizon } from '../queue/common'
 
 const min_balance = 2
-const horizon = fetcher({ base: 'https://horizon-futurenet.stellar.org' })
 
 // TODO We should place caps on the channel array so it doesn't grow unbounded somehow
 // they can be high but they should be capped

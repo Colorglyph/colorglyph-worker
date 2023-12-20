@@ -84,3 +84,9 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 6
 max_concurrency = 1
+
+[vars]
+ENVIRONMENT = "production"
+RPC_URL = "https://rpc-futurenet.stellar.org"
+HORIZON_URL = "https://horizon-futurenet.stellar.org"
+CONTRACT_ID = "CBKJYPDCM6YTD55JTULQHVV6QZO43NGGGPDF2G4KU7W2PF3AFQYXIAGX"

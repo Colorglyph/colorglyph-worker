@@ -1,9 +1,8 @@
-import { Keypair, SorobanRpc, Transaction, Networks } from 'stellar-sdk'
-import { server, sleep, Wallet } from './common'
-import { getRandomNumber, sortMapKeys } from '../utils'
+import { Keypair, SorobanRpc, Transaction } from 'stellar-sdk'
+import { networkPassphrase, server, sleep, Wallet, Contract } from './common'
+import { sortMapKeys } from '../utils'
 import { StatusError } from 'itty-router'
 import { writeErrorToR2 } from '../utils/writeErrorToR2'
-import { Contract } from './common'
 import { AssembledTransaction } from 'colorglyph-sdk'
 
 export async function sendTx(message: Message<MintJob>, env: Env, ctx: ExecutionContext) {
@@ -30,7 +29,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
         const { contract: Colorglyph } = new Contract(channel_keypair)
         const keypair = Keypair.fromSecret(body.secret)
         const pubkey = keypair.publicKey()
-        const fee = getRandomNumber(9_000_000, 10_000_000) // TODO we should be smarter about this (using random so at least we have some variance)
+        const fee = 10_000_000
 
         let preTx: AssembledTransaction<any>
 
@@ -82,7 +81,16 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                 preTx.simulationData.transactionData.resources().writeBytes(),
             )
 
-        const tempTx = new Transaction(preTx.raw.toXDR(), Networks.FUTURENET)
+        // if (body.width)
+        //     console.log(
+        //         simTx.cost,
+        //         preTx.simulationData.transactionData.resourceFee(),
+        //         preTx.simulationData.transactionData.resources()
+        //     );
+
+        // simTx.transactionData.setResourceFee(Number(preTx.simulationData.transactionData.resourceFee()) + getRandomNumber(100_000, 1_000_000))
+
+        const tempTx = new Transaction(preTx.raw.toXDR(), networkPassphrase)
         const readyTx = SorobanRpc.assembleTransaction(tempTx, simTx).build()
 
         readyTx.sign(channel_keypair)
@@ -104,7 +112,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
                 break;
             default:
-                console.log(subTx)
+                console.log(JSON.stringify(subTx, null, 2))
 
                 switch (subTx.status) {
                     case 'DUPLICATE':

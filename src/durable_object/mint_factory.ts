@@ -1,7 +1,5 @@
-// TEMP fine tune these as we get closer to launch. I hear return/event KB may be increased
-const maxMineSize = 17 // down from 18 due to extra signer // 10
-const maxMintSize = 18 // down from 19 due to extra signer // 10
-// const maxMintCount = 1000 // 50 // TEMP with the event updates I actually don't think we need this restriction anymore
+const maxMineSize = 17
+const maxMintSize = 18
 
 import {
     error,
@@ -193,8 +191,9 @@ export class MintFactory {
         if (!body)
             throw new StatusError(404, 'Body not found')
 
-        const { mintJob, returnValueXDR }: {
+        const { mintJob, feeCharged, returnValueXDR }: {
             mintJob: MintJob,
+            feeCharged: xdr.Int64,
             returnValueXDR: string | undefined
         } = await req.json() as any
 
@@ -204,7 +203,7 @@ export class MintFactory {
                 break;
             case 'mint':
                 if (mintJob.width)
-                    await this.mintComplete(body, returnValueXDR)
+                    await this.mintComplete(body, feeCharged, returnValueXDR)
                 else
                     await this.mintProgress(body)
                 break;
@@ -260,7 +259,6 @@ export class MintFactory {
                 if (
                     index === body.palette.length - 1
                     || map.size >= maxMintSize
-                    // || count >= maxMintCount
                 ) {
                     sanitizedPaletteArray.push([...map.entries()])
                     count = 0
@@ -319,7 +317,7 @@ export class MintFactory {
             await this.storage.delete('mint_jobs')
         }
     }
-    async mintComplete(body: any, returnValueXDR: string | undefined) {
+    async mintComplete(body: any, feeCharged: xdr.Int64, returnValueXDR: string | undefined) {
         const returnValue = xdr.ScVal.fromXDR(returnValueXDR!, 'base64')
         const hash = returnValue.bytes().toString('hex')
 
@@ -327,6 +325,7 @@ export class MintFactory {
             await this.env.GLYPHS.put(hash, new Uint8Array(body.palette), {
                 metadata: {
                     id: this.id.toString(),
+                    fee: feeCharged.toString(),
                     width: body.width,
                     status: 'minted', // system oriented. i.e. `minted|scraped`
                     mishash: body.hash !== hash ? body.hash : undefined, // realistically this should never happen, but if it does we need to save both hashes
