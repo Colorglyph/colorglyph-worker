@@ -193,7 +193,7 @@ export class MintFactory {
 
         const { mintJob, feeCharged, returnValueXDR }: {
             mintJob: MintJob,
-            feeCharged: xdr.Int64,
+            feeCharged: string,
             returnValueXDR: string | undefined
         } = await req.json() as any
 
@@ -317,7 +317,7 @@ export class MintFactory {
             await this.storage.delete('mint_jobs')
         }
     }
-    async mintComplete(body: any, feeCharged: xdr.Int64, returnValueXDR: string | undefined) {
+    async mintComplete(body: any, feeCharged: string, returnValueXDR: string | undefined) {
         const returnValue = xdr.ScVal.fromXDR(returnValueXDR!, 'base64')
         const hash = returnValue.bytes().toString('hex')
 
@@ -325,7 +325,7 @@ export class MintFactory {
             await this.env.GLYPHS.put(hash, new Uint8Array(body.palette), {
                 metadata: {
                     id: this.id.toString(),
-                    fee: feeCharged.toString(),
+                    fee: feeCharged,
                     width: body.width,
                     status: 'minted', // system oriented. i.e. `minted|scraped`
                     mishash: body.hash !== hash ? body.hash : undefined, // realistically this should never happen, but if it does we need to save both hashes

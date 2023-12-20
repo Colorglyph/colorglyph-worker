@@ -40,7 +40,7 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
                         method: 'PATCH',
                         body: JSON.stringify({
                             mintJob: body,
-                            feeCharged: res.resultXdr.feeCharged(),
+                            feeCharged: res.resultXdr.feeCharged().toString(),
                             returnValueXDR: res.returnValue?.toXDR('base64')
                         })
                     })
