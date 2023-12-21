@@ -12,7 +12,7 @@ export const XLM = 'CB64D3G7SM2RTH6JSGG34DDTFTQ5CFDKVDZJZSODMCX4NJ2HV2KN7OHT' //
 export const horizon = fetcher({ base: 'https://horizon-futurenet.stellar.org' }) // fetcher({ base: 'http://localhost:8000' })
 export const server = new SorobanRpc.Server(rpcUrl, { allowHttp: true })
 
-export const contractId = 'CBKJYPDCM6YTD55JTULQHVV6QZO43NGGGPDF2G4KU7W2PF3AFQYXIAGX' // 'CBPLGS24VMUWVFCQOUABQ3MMLU6JJ5Q2N2QFV2HSFXEWTDVVR64YT26K'
+export const contractId = 'CDMGYHGOOT6B47C4UG2RY5C2H34FXA4H6B7I43BSCDS3A7I2FUOFQ563' // 'CBPLGS24VMUWVFCQOUABQ3MMLU6JJ5Q2N2QFV2HSFXEWTDVVR64YT26K'
 export const RawContract = new SorobanClientContract(contractId)
 
 export function sleep(seconds: number) {

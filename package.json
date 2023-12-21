@@ -12,7 +12,7 @@
     "buffer": "^6.0.3",
     "colorglyph-sdk": "file:./ext/colorglyph-sdk",
     "itty-fetcher": "^0.9.4",
-    "itty-router": "^4.0.23",
+    "itty-router": "^4.0.24",
     "stellar-sdk": "github:tyvdh/js-stellar-sdk#make-eventsource-optional"
   },
   "devDependencies": {
@@ -20,6 +20,6 @@
     "@stellar/tsconfig": "^1.0.2",
     "@types/node": "^20.10.5",
     "typescript": "^5.3.3",
-    "wrangler": "^3.21.0"
+    "wrangler": "^3.22.1"
   }
 }
