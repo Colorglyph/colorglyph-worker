@@ -84,11 +84,22 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
         if (
             body.type === 'mint'
             || body.width
-        )   console.log(
-                simTx.cost,
-                preTx.simulationData.transactionData.resourceFee(),
-                preTx.simulationData.transactionData.resources()
-            );
+        )   {
+            const txData = simTx.transactionData.build();
+
+            console.log({
+                resourceFee: txData.resourceFee().toString(),
+                cost: {
+                    cpuInsns: simTx.cost.cpuInsns,
+                    memBytes: simTx.cost.memBytes,
+                },
+                resources: {
+                    instructions: txData.resources().instructions(),
+                    readBytes: txData.resources().readBytes(),
+                    writeBytes: txData.resources().writeBytes(),
+                },
+            });
+        }
 
         // simTx.transactionData.setResourceFee(Number(preTx.simulationData.transactionData.resourceFee()) + getRandomNumber(100_000, 1_000_000))
 
@@ -141,6 +152,8 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                 throw new StatusError(400, `Transaction ${subTx.status} error`)
         }
     } catch (err) {
+        console.error(err);
+
         // TODO save the error?
         // maybe in Sentry as this won't be Stellar/Soroban specific
 
