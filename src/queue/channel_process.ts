@@ -31,7 +31,7 @@ export async function channelProcess(messages: Message<ChannelJob>[], env: Env, 
                 created.push(body.channel)
                 transaction.addOperation(Operation.createAccount({
                     destination: Keypair.fromSecret(body.channel).publicKey(),
-                    startingBalance: '10',
+                    startingBalance: '20',
                 }))
                 break;
             case 'merge':

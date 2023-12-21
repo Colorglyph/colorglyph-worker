@@ -114,7 +114,12 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
                 break;
             default:
-                console.log(body.id, JSON.stringify(subTx, null, 2))
+                console.log(`
+                    ${body.id}
+                    ${pubkey}
+                    ${channel_keypair.publicKey()}
+                    ${JSON.stringify(subTx, null, 2)}
+                `)
 
                 switch (subTx.status) {
                     case 'DUPLICATE':

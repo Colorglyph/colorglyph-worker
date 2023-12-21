@@ -11,7 +11,7 @@ import {
 import { Keypair } from 'stellar-sdk'
 import { Config } from '../queue/common'
 
-const min_balance = 2
+const MIN_BALANCE = 5
 
 // TODO We should place caps on the channel array so it doesn't grow unbounded somehow
 // they can be high but they should be capped
@@ -97,7 +97,7 @@ export class ChannelAccount {
                 .catch(() => ({ balances: [{ asset_type: 'native', balance: '0' }] })) // TODO this should be smarter but if a channel account is a 404 (like during a testnet/futurenet reset) we should slot the channel for removal
             const { balance } = res.balances.find(({ asset_type }) => asset_type === 'native')!
 
-            if (Number(balance) < min_balance) { // if we have < {x} XLM we shouldn't use this channel account
+            if (Number(balance) < MIN_BALANCE) { // if we have < {x} XLM we shouldn't use this channel account
                 await this.env.CHANNEL_PROCESS.send({
                     type: 'merge',
                     channel
