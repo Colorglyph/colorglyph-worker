@@ -4,7 +4,7 @@
     "dependencies": {
         "@stellar/freighter-api": "1.7.1",
         "buffer": "6.0.3",
-        "stellar-sdk": "github:tyvdh/js-stellar-sdk#make-eventsource-optional"
+        "stellar-sdk": "git://github.com/tyvdh/js-stellar-sdk.git#5041177146c22dd17dda21fa8d2947f854c29d01"
     },
     "scripts": {
         "build": "node ./scripts/build.mjs"
