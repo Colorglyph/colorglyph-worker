@@ -16,9 +16,8 @@ export async function writeErrorToR2(
     if (typeof tx === 'string') {
         const { rpc } = new Config(env)
         
-        // TEMP while we wait for `soroban-client` -> `server.getTransaction` -> `FAILED` to send more complete data
-        const res_string = await rpc._getTransaction(tx)
-            .then((res) => JSON.stringify(res))
+        const res_string = await rpc._getTransaction(tx) // _getTransaction so it's a nice clean raw response
+            .then((res) => JSON.stringify(res, null, 2))
 
         data = encoder.encode(`${await existing?.text()}\n\n${tx}\n\n${res_string}\n\n${extra}`)
     }
