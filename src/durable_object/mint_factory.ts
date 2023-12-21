@@ -1,5 +1,5 @@
-const maxMineSize = 17 // 500 // 17
-const maxMintSize = 18 // 200 // 18
+const maxMineSize = 17 // 500
+const maxMintSize = 18 // 200
 
 import {
     error,

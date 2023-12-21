@@ -3,7 +3,12 @@ import { Config } from "../queue/common"
 
 const encoder = new TextEncoder()
 
-export async function writeErrorToR2(body: MintJob, tx: string | SorobanRpc.Api.SimulateTransactionErrorResponse, env: Env) {
+export async function writeErrorToR2(
+    body: MintJob, 
+    tx: string | SorobanRpc.Api.SimulateTransactionErrorResponse | SorobanRpc.Api.SimulateTransactionSuccessResponse, 
+    env: Env, 
+    extra?: string
+) {
     const existing = await env.ERRORS.get(body.id)
 
     let data: Uint8Array
@@ -15,21 +20,35 @@ export async function writeErrorToR2(body: MintJob, tx: string | SorobanRpc.Api.
         const res_string = await rpc._getTransaction(tx)
             .then((res) => JSON.stringify(res))
 
-        console.log(tx, res_string)
-
-        data = encoder.encode(`${await existing?.text()}\n\n${tx}\n\n${res_string}`)
+        data = encoder.encode(`${await existing?.text()}\n\n${tx}\n\n${res_string}\n\n${extra}`)
     }
 
     else {
-        console.log(tx.error)
-
         let events = ''
 
         for (const event of tx.events) {
             events += `\n\n${event.toXDR('base64')}`
         }
 
-        data = encoder.encode(`${await existing?.text()}\n\n${events}\n\n${tx.error}`)
+        if (SorobanRpc.Api.isSimulationError(tx)) { // Error, Raw, Restore
+            data = encoder.encode(`${await existing?.text()}\n\n${events}\n\n${tx.error}\n\n${extra}`)    
+        } else {
+            const txData = tx.transactionData.build();
+            const fees = {
+                resourceFee: txData.resourceFee().toString(),
+                cost: {
+                    cpuInsns: tx.cost.cpuInsns,
+                    memBytes: tx.cost.memBytes,
+                },
+                resources: {
+                    instructions: txData.resources().instructions(),
+                    readBytes: txData.resources().readBytes(),
+                    writeBytes: txData.resources().writeBytes(),
+                },
+            }
+
+            data = encoder.encode(`${await existing?.text()}\n\n${events}\n\n${JSON.stringify(fees, null, 2)}\n\n${extra}`)
+        }        
     }
 
     await env.ERRORS.put(body.id, data)

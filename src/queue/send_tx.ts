@@ -71,10 +71,8 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
         const simTx = await rpc.simulateTransaction(preTx.raw)
 
-        if (!SorobanRpc.Api.isSimulationSuccess(simTx)) { // Error, Raw, Restore
-            await writeErrorToR2(body, simTx, env)
+        if (!SorobanRpc.Api.isSimulationSuccess(simTx)) // Error, Raw, Restore
             throw new StatusError(400, 'Simulation failed')
-        }
 
         if (body.type === 'mine')
             simTx.transactionData.setResources(
@@ -83,8 +81,10 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                 preTx.simulationData.transactionData.resources().writeBytes(),
             )
 
-        if (body.width)
-            console.log(
+        if (
+            body.type === 'mint'
+            || body.width
+        )   console.log(
                 simTx.cost,
                 preTx.simulationData.transactionData.resourceFee(),
                 preTx.simulationData.transactionData.resources()
@@ -114,7 +114,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
                 break;
             default:
-                console.log(JSON.stringify(subTx, null, 2))
+                console.log(body.id, JSON.stringify(subTx, null, 2))
 
                 switch (subTx.status) {
                     case 'DUPLICATE':
@@ -129,15 +129,13 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                 }
 
                 // save the error
-                await writeErrorToR2(body, subTx.hash, env)
+                await writeErrorToR2(body, simTx, env, JSON.stringify(subTx, null, 2))
 
                 // ensure the channel account is returned to the pool
                 // NOTE not sure this is wise or not. I do know without it we'll lose the channel account
                 throw new StatusError(400, `Transaction ${subTx.status} error`)
         }
     } catch (err) {
-        console.error(err)
-
         // TODO save the error?
         // maybe in Sentry as this won't be Stellar/Soroban specific
 
