@@ -1,29 +1,38 @@
 import { Contract as ColorglyphContract } from 'colorglyph-sdk'
-import { fetcher } from 'itty-fetcher'
-import { Keypair, Networks, Transaction, SorobanRpc, Contract as SorobanClientContract, hash,  } from 'stellar-sdk'
+import { Keypair, Networks, Transaction, SorobanRpc, hash, Horizon } from 'stellar-sdk'
 import { Buffer } from 'buffer'
-
-export const rpcUrl = 'https://rpc-futurenet.stellar.org' // 'http://localhost:8000/soroban/rpc'
-export const networkPassphrase = Networks.FUTURENET
-
-export const oceanKp = Keypair.fromSecret('SAJR6ISVN7C5AP6ICU7NWP2RZUSSCIG3FMPD66WJWUA23REZGH66C4TE') // GDKZ4O7446TNQTR3NZVJTAS7FTF6B6P2VF3B5NT2SMB2BPAF5OMIJO4S
-export const XLM = 'CB64D3G7SM2RTH6JSGG34DDTFTQ5CFDKVDZJZSODMCX4NJ2HV2KN7OHT' // 'CDMLFMKMMD7MWZP3FKUBZPVHTUEDLSX4BYGYKH4GCESXYHS3IHQ4EIG4'
-
-export const horizon = fetcher({ base: 'https://horizon-futurenet.stellar.org' }) // fetcher({ base: 'http://localhost:8000' })
-export const server = new SorobanRpc.Server(rpcUrl, { allowHttp: true })
-
-export const contractId = 'CDMGYHGOOT6B47C4UG2RY5C2H34FXA4H6B7I43BSCDS3A7I2FUOFQ563' // 'CBPLGS24VMUWVFCQOUABQ3MMLU6JJ5Q2N2QFV2HSFXEWTDVVR64YT26K'
-export const RawContract = new SorobanClientContract(contractId)
 
 export function sleep(seconds: number) {
     return new Promise((resolve) => setTimeout(resolve, seconds * 1000))
 }
 
+export class Config {
+    contractId: string
+    oceanKp: Keypair
+    rpcUrl: string
+    networkPassphrase: Networks
+    horizon: Horizon.Server
+    rpc: SorobanRpc.Server
+
+    constructor(env: Env) {
+        const isLocal = env.NETWORK === 'local'
+
+        this.contractId = env.CONTRACT_ID
+        this.oceanKp = Keypair.fromSecret(env.OCEAN_SK)
+        this.rpcUrl = isLocal ? 'http://localhost:8000/soroban/rpc' : 'https://rpc-futurenet.stellar.org'
+        this.networkPassphrase = isLocal ? Networks.STANDALONE : Networks.FUTURENET
+        this.horizon = new Horizon.Server(isLocal ? 'http://localhost:8000' : 'https://horizon-futurenet.stellar.org', { allowHttp: isLocal })
+        this.rpc = new SorobanRpc.Server(this.rpcUrl, { allowHttp: isLocal })
+    }
+}
+
 export class Wallet {
     keypair: Keypair
+    config: Config
 
-    constructor(keypair: Keypair) {
+    constructor(keypair: Keypair, config: Config) {
         this.keypair = keypair
+        this.config = config
     }
     async isConnected() {
         return true
@@ -37,7 +46,7 @@ export class Wallet {
         }
     }
     async signTransaction(xdr: string) {
-        const transaction = new Transaction(xdr, networkPassphrase)
+        const transaction = new Transaction(xdr, this.config.networkPassphrase)
 
         transaction.sign(this.keypair)
 
@@ -45,7 +54,7 @@ export class Wallet {
     }
     async signAuthEntry(entryXdr: string) {
         return this.keypair
-            .sign(hash(Buffer.from(entryXdr, "base64")))
+            .sign(hash(Buffer.from(entryXdr, 'base64')))
             .toString('base64')
     }
 }
@@ -53,13 +62,12 @@ export class Wallet {
 export class Contract {
     contract: ColorglyphContract
 
-    constructor(keypair: Keypair) {
+    constructor(keypair: Keypair, config: Config) {
         this.contract = new ColorglyphContract({
-            // ...networks.futurenet,
-            networkPassphrase,
-            contractId,
-            rpcUrl,
-            wallet: new Wallet(keypair)
+            contractId: config.contractId,
+            rpcUrl: config.rpcUrl,
+            networkPassphrase: config.networkPassphrase,
+            wallet: new Wallet(keypair, config)
         })
     }
 }

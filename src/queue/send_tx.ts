@@ -1,11 +1,13 @@
 import { Keypair, SorobanRpc, Transaction } from 'stellar-sdk'
-import { networkPassphrase, server, sleep, Wallet, Contract } from './common'
+import { sleep, Config, Wallet, Contract } from './common'
 import { sortMapKeys } from '../utils'
 import { StatusError } from 'itty-router'
 import { writeErrorToR2 } from '../utils/writeErrorToR2'
 import { AssembledTransaction } from 'colorglyph-sdk'
 
 export async function sendTx(message: Message<MintJob>, env: Env, ctx: ExecutionContext) {
+    const config = new Config(env)
+    const { rpc, networkPassphrase } = config
     const id = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1') // Hard coded because we need to resolve to the same DO app wide
     const stub = env.CHANNEL_ACCOUNT.get(id)
 
@@ -26,7 +28,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
             })
 
         const channel_keypair = Keypair.fromSecret(channel)
-        const { contract: Colorglyph } = new Contract(channel_keypair)
+        const { contract: Colorglyph } = new Contract(channel_keypair, config)
         const keypair = Keypair.fromSecret(body.secret)
         const pubkey = keypair.publicKey()
         const fee = 10_000_000
@@ -61,13 +63,13 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                 throw new StatusError(404, `Type ${body.type} not found`)
         }
 
-        const currentLedger = await server.getLatestLedger()
+        const currentLedger = await rpc.getLatestLedger()
         const validUntilLedger = currentLedger.sequence + 12 // 1 minute of ledgers
 
         if ((await preTx.needsNonInvokerSigningBy()).length)
-            await preTx.signAuthEntries(new Wallet(keypair), validUntilLedger)
+            await preTx.signAuthEntries(new Wallet(keypair, config), validUntilLedger)
 
-        const simTx = await server.simulateTransaction(preTx.raw)
+        const simTx = await rpc.simulateTransaction(preTx.raw)
 
         if (!SorobanRpc.Api.isSimulationSuccess(simTx)) { // Error, Raw, Restore
             await writeErrorToR2(body, simTx, env)
@@ -81,12 +83,12 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                 preTx.simulationData.transactionData.resources().writeBytes(),
             )
 
-        // if (body.width)
-        //     console.log(
-        //         simTx.cost,
-        //         preTx.simulationData.transactionData.resourceFee(),
-        //         preTx.simulationData.transactionData.resources()
-        //     );
+        if (body.width)
+            console.log(
+                simTx.cost,
+                preTx.simulationData.transactionData.resourceFee(),
+                preTx.simulationData.transactionData.resources()
+            );
 
         // simTx.transactionData.setResourceFee(Number(preTx.simulationData.transactionData.resourceFee()) + getRandomNumber(100_000, 1_000_000))
 
@@ -95,7 +97,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
         readyTx.sign(channel_keypair)
 
-        const subTx = await server.sendTransaction(readyTx)
+        const subTx = await rpc.sendTransaction(readyTx)
 
         switch (subTx.status) {
             case 'PENDING':

@@ -1,9 +1,10 @@
 import { SorobanRpc } from "stellar-sdk"
-import { server } from "./common"
 import { StatusError } from "itty-router"
 import { writeErrorToR2 } from "../utils/writeErrorToR2"
+import { Config } from "./common"
 
 export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionContext): Promise<boolean> {
+    const { rpc } = new Config(env)
     const id = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1')
     const stub = env.CHANNEL_ACCOUNT.get(id)
     const body = message.body
@@ -12,7 +13,7 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
     let res: SorobanRpc.Api.GetTransactionResponse
 
     try {
-        res = await server.getTransaction(hash)
+        res = await rpc.getTransaction(hash)
     } catch {
         message.retry()
         return true

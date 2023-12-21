@@ -86,7 +86,5 @@ max_retries = 6
 max_concurrency = 1
 
 [vars]
-ENVIRONMENT = "production"
-RPC_URL = "https://rpc-futurenet.stellar.org"
-HORIZON_URL = "https://horizon-futurenet.stellar.org"
-CONTRACT_ID = "CDMGYHGOOT6B47C4UG2RY5C2H34FXA4H6B7I43BSCDS3A7I2FUOFQ563"
+NETWORK = "future"
+CONTRACT_ID = "CDYEDLOJDY3GTB6UHYAFYKYXNM2F7U5GGFL7P5E3IVRXQB67UZ57AD7L"

@@ -7,6 +7,10 @@ interface Env {
     IMAGES: R2Bucket
     ERRORS: R2Bucket
     GLYPHS: KVNamespace
+
+    NETWORK: local | future // TODO | test | public
+    CONTRACT_ID: string
+    OCEAN_SK: string
 }
 
 interface MintRequest {

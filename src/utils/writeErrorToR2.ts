@@ -1,5 +1,5 @@
 import { SorobanRpc } from "stellar-sdk"
-import { server } from "../queue/common"
+import { Config } from "../queue/common"
 
 const encoder = new TextEncoder()
 
@@ -9,8 +9,10 @@ export async function writeErrorToR2(body: MintJob, tx: string | SorobanRpc.Api.
     let data: Uint8Array
 
     if (typeof tx === 'string') {
+        const { rpc } = new Config(env)
+        
         // TEMP while we wait for `soroban-client` -> `server.getTransaction` -> `FAILED` to send more complete data
-        const res_string = await server._getTransaction(tx)
+        const res_string = await rpc._getTransaction(tx)
             .then((res) => JSON.stringify(res))
 
         console.log(tx, res_string)

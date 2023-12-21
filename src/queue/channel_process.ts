@@ -1,15 +1,16 @@
 import { StatusError } from "itty-router"
-import { horizon, networkPassphrase, oceanKp } from "./common"
 import { Account, Keypair, Operation, TimeoutInfinite, Transaction, TransactionBuilder } from "stellar-sdk"
+import { Config } from "./common";
 
 // TODO a lot rides on the ocean pubkey always having available funds
 // there should be some robust alerts for monitoring the balance of the ocean account
 
 export async function channelProcess(messages: Message<ChannelJob>[], env: Env, ctx: ExecutionContext) {
+    const { horizon, networkPassphrase, oceanKp } = new Config(env);
     const id = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1')
     const stub = env.CHANNEL_ACCOUNT.get(id)
     const ocean_pubkey = oceanKp.publicKey()
-    const res: any = await horizon.get(`/accounts/${ocean_pubkey}`)
+    const res = await horizon.loadAccount(ocean_pubkey)
     const source = new Account(ocean_pubkey, res.sequence)
     const created: string[] = []
     const merged: string[] = []
@@ -55,10 +56,7 @@ export async function channelProcess(messages: Message<ChannelJob>[], env: Env, 
 
     transaction.sign(oceanKp)
 
-    const tx = new FormData()
-    tx.append('tx', transaction.toXDR())
-
-    await horizon.post('/transactions', tx) // NOTE if this fails in the dlq we lose the channel
+    await horizon.submitTransaction(transaction)  // NOTE if this fails in the dlq we lose the channel
         .then((res) => console.log(res))
 
     // If tx submission was successful add these channels to our available channels list

@@ -9,7 +9,7 @@ import {
     text,
 } from 'itty-router'
 import { Keypair } from 'stellar-sdk'
-import { horizon } from '../queue/common'
+import { Config } from '../queue/common'
 
 const min_balance = 2
 
@@ -83,6 +83,8 @@ export class ChannelAccount {
             throw new StatusError(400, 'No channels available')
         }
 
+        const { horizon } = new Config(this.env)
+
         let channel: string
 
         // Loop over all available channels until we find one with sufficient balance to use
@@ -90,11 +92,10 @@ export class ChannelAccount {
             channel = this.channels.shift()!
 
             const pubkey = Keypair.fromSecret(channel).publicKey()
-
-            const res: any = await horizon
-                .get(`/accounts/${pubkey}`)
+            const res = await horizon
+                .loadAccount(pubkey)
                 .catch(() => ({ balances: [{ asset_type: 'native', balance: '0' }] })) // TODO this should be smarter but if a channel account is a 404 (like during a testnet/futurenet reset) we should slot the channel for removal
-            const { balance } = res.balances.find(({ asset_type }: any) => asset_type === 'native')
+            const { balance } = res.balances.find(({ asset_type }) => asset_type === 'native')!
 
             if (Number(balance) < min_balance) { // if we have < {x} XLM we shouldn't use this channel account
                 await this.env.CHANNEL_PROCESS.send({
