@@ -13,6 +13,7 @@ import {
 import { xdr } from 'stellar-sdk'
 import { chunkArray, getGlyphHash } from '../utils'
 import { paletteToBase64 } from '../utils/paletteToBase64'
+import BigNumber from 'bignumber.js'
 
 // NOTE A durable object can die at any moment due to a code push
 // this causes all pending state to be lost and all pending requests to die
@@ -56,6 +57,7 @@ export class MintFactory {
 
     async getJob(req: Request) {
         const body: any = await this.storage.get('body')
+        const cost = await this.storage.get('cost')
         const status = await this.storage.get('status')
         const mineTotal = await this.storage.get('mine_total')
         const mineProgress = await this.storage.get('mine_progress')
@@ -65,6 +67,7 @@ export class MintFactory {
         return json({
             id: this.id.toString(),
             hash: body?.hash,
+            cost,
             status,
             mineTotal,
             mineProgress,
@@ -197,13 +200,17 @@ export class MintFactory {
             returnValueXDR: string | undefined
         } = await req.json() as any
 
+        const cost = new BigNumber(await this.storage.get('cost') || 0).plus(feeCharged).toString()
+        
+        await this.storage.put('cost', cost)
+
         switch (mintJob.type) {
             case 'mine':
                 await this.mineProgress(body)
                 break;
             case 'mint':
                 if (mintJob.width)
-                    await this.mintComplete(body, feeCharged, returnValueXDR)
+                    await this.mintComplete(body, returnValueXDR)
                 else
                     await this.mintProgress(body)
                 break;
@@ -317,21 +324,26 @@ export class MintFactory {
             await this.storage.delete('mint_jobs')
         }
     }
-    async mintComplete(body: any, feeCharged: string, returnValueXDR: string | undefined) {
+    async mintComplete(body: any, returnValueXDR: string | undefined) {
         const returnValue = xdr.ScVal.fromXDR(returnValueXDR!, 'base64')
         const hash = returnValue.bytes().toString('hex')
 
-        if (hash)
+        if (hash) {
+            const fee = await this.storage.get('cost')
+
+            console.log(fee)
+
             await this.env.GLYPHS.put(hash, new Uint8Array(body.palette), {
                 metadata: {
                     id: this.id.toString(),
-                    fee: feeCharged,
+                    fee,
                     width: body.width,
                     length: body.palette.length,
                     status: 'minted', // system oriented. i.e. `minted|scraped`
                     mishash: body.hash !== hash ? body.hash : undefined, // realistically this should never happen, but if it does we need to save both hashes
                 }
             })
+        }
 
         await this.flushAll()
     }

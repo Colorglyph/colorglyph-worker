@@ -26,7 +26,8 @@ export async function writeErrorToR2(
         let events = ''
 
         for (const event of tx.events) {
-            events += `\n\n${event.toXDR('base64')}`
+            if (event.event().type().name === 'diagnostic')
+                events += `\n\n${event.event().body().toXDR('base64')}`
         }
 
         if (SorobanRpc.Api.isSimulationError(tx)) { // Error, Raw, Restore

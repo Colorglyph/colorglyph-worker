@@ -1,6 +1,9 @@
 import { Contract as ColorglyphContract } from 'colorglyph-sdk'
 import { Keypair, Networks, Transaction, SorobanRpc, hash, Horizon } from 'stellar-sdk'
+import fetchAdapter from '@vespaiach/axios-fetch-adapter'
 import { Buffer } from 'buffer'
+
+Horizon.AxiosClient.defaults.adapter = fetchAdapter as any
 
 export function sleep(seconds: number) {
     return new Promise((resolve) => setTimeout(resolve, seconds * 1000))
