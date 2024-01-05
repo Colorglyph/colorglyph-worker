@@ -21,6 +21,9 @@ import type {
   Wallet,
   XDR_BASE64,
 } from "./method-options.js";
+import fetchAdapter from '@vespaiach/axios-fetch-adapter'
+
+SorobanRpc.AxiosClient.defaults.adapter = fetchAdapter as any
 
 export type Tx = Transaction<Memo<MemoType>, Operation[]>
 

@@ -9,11 +9,19 @@
   },
   "dependencies": {
     "@lunapaint/png-codec": "^0.2.0",
+    "bignumber.js": "^9.1.2",
     "buffer": "^6.0.3",
     "colorglyph-sdk": "file:./ext/colorglyph-sdk",
     "itty-fetcher": "^0.9.4",
     "itty-router": "^4.0.24",
-    "stellar-sdk": "git://github.com/tyvdh/js-stellar-sdk.git#5041177146c22dd17dda21fa8d2947f854c29d01"
+    "stellar-sdk": "git+https://github.com/stellar/js-stellar-sdk.git#06699dd",
+    "@vespaiach/axios-fetch-adapter": "^0.3.1",
+    "axios": "^0.26.1"
+  },
+  "overrides": {
+    "stellar-sdk": {
+      "axios": "$axios"
+    }
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20231218.0",
