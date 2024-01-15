@@ -8,7 +8,7 @@ import {
     StatusError,
     text,
 } from 'itty-router'
-import { Keypair } from 'stellar-sdk'
+import { Keypair } from '@stellar/stellar-sdk'
 import { Config } from '../queue/common'
 
 const MIN_BALANCE = 5

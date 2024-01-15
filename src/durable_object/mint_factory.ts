@@ -10,7 +10,7 @@ import {
     StatusError,
     text,
 } from 'itty-router'
-import { xdr } from 'stellar-sdk'
+import { xdr } from '@stellar/stellar-sdk'
 import { chunkArray, getGlyphHash } from '../utils'
 import { paletteToBase64 } from '../utils/paletteToBase64'
 import BigNumber from 'bignumber.js'

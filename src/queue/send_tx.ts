@@ -1,4 +1,4 @@
-import { Keypair, SorobanRpc, Transaction } from 'stellar-sdk'
+import { Keypair, SorobanRpc, Transaction } from '@stellar/stellar-sdk'
 import { sleep, Config, Wallet, Contract } from './common'
 import { sortMapKeys } from '../utils'
 import { StatusError } from 'itty-router'

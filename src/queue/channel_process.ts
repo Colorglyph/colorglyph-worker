@@ -1,5 +1,5 @@
 import { StatusError } from "itty-router"
-import { Account, Keypair, Operation, TimeoutInfinite, Transaction, TransactionBuilder } from "stellar-sdk"
+import { Account, Keypair, Operation, TimeoutInfinite, Transaction, TransactionBuilder } from '@stellar/stellar-sdk'
 import { Config } from "./common";
 
 // TODO a lot rides on the ocean pubkey always having available funds

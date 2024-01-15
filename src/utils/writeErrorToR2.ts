@@ -1,4 +1,4 @@
-import { SorobanRpc } from "stellar-sdk"
+import { SorobanRpc } from '@stellar/stellar-sdk'
 import { Config } from "../queue/common"
 
 const encoder = new TextEncoder()

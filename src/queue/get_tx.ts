@@ -1,4 +1,4 @@
-import { SorobanRpc } from "stellar-sdk"
+import { SorobanRpc } from '@stellar/stellar-sdk'
 import { StatusError } from "itty-router"
 import { writeErrorToR2 } from "../utils/writeErrorToR2"
 import { Config } from "./common"
