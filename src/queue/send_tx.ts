@@ -72,7 +72,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
         const simTx = await rpc.simulateTransaction(preTx.raw)
 
         if (!SorobanRpc.Api.isSimulationSuccess(simTx)) // Error, Raw, Restore
-            throw new StatusError(400, 'Simulation failed')
+            throw new StatusError(400, `Transaction simulation failed: "${simTx.error}"`)
 
         if (body.type === 'mine')
             simTx.transactionData.setResources(
