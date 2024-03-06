@@ -12,7 +12,6 @@ import {
   nativeToScVal,
   xdr,
   BASE_FEE,
-  Horizon,
 } from "@stellar/stellar-sdk";
 import type { Memo, MemoType, Transaction } from "@stellar/stellar-sdk";
 import { Buffer } from "buffer";
@@ -25,7 +24,6 @@ import type {
 import fetchAdapter from '@vespaiach/axios-fetch-adapter'
 
 SorobanRpc.AxiosClient.defaults.adapter = fetchAdapter as any
-Horizon.AxiosClient.defaults.adapter = fetchAdapter as any
 
 export type Tx = Transaction<Memo<MemoType>, Operation[]>
 
@@ -50,52 +48,52 @@ export type i256 = bigint;
 export type Option<T> = T | undefined;
 export type Typepoint = bigint;
 export type Duration = bigint;
-export { Address };
+export {Address};
 
 /// Error interface containing the error message
 export interface Error_ { message: string };
 
 export interface Result<T, E extends Error_> {
-  unwrap(): T,
-  unwrapErr(): E,
-  isOk(): boolean,
-  isErr(): boolean,
+    unwrap(): T,
+    unwrapErr(): E,
+    isOk(): boolean,
+    isErr(): boolean,
 };
 
 export class Ok<T, E extends Error_ = Error_> implements Result<T, E> {
-  constructor(readonly value: T) { }
-  unwrapErr(): E {
-    throw new Error('No error');
-  }
-  unwrap(): T {
-    return this.value;
-  }
+    constructor(readonly value: T) { }
+    unwrapErr(): E {
+        throw new Error('No error');
+    }
+    unwrap(): T {
+        return this.value;
+    }
 
-  isOk(): boolean {
-    return true;
-  }
+    isOk(): boolean {
+        return true;
+    }
 
-  isErr(): boolean {
-    return !this.isOk()
-  }
+    isErr(): boolean {
+        return !this.isOk()
+    }
 }
 
 export class Err<E extends Error_ = Error_> implements Result<any, E> {
-  constructor(readonly error: E) { }
-  unwrapErr(): E {
-    return this.error;
-  }
-  unwrap(): never {
-    throw new Error(this.error.message);
-  }
+    constructor(readonly error: E) { }
+    unwrapErr(): E {
+        return this.error;
+    }
+    unwrap(): never {
+        throw new Error(this.error.message);
+    }
 
-  isOk(): boolean {
-    return false;
-  }
+    isOk(): boolean {
+        return false;
+    }
 
-  isErr(): boolean {
-    return !this.isOk()
-  }
+    isErr(): boolean {
+        return !this.isOk()
+    }
 }
 
 export const contractErrorPattern = /Error\(Contract, #(\d+)\)/;

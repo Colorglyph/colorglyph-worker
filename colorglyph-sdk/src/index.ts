@@ -28,9 +28,9 @@ if (typeof window !== 'undefined') {
 
 
 export const networks = {
-    futurenet: {
-        networkPassphrase: "Test SDF Future Network ; October 2022",
-        contractId: "CC5YDEXJXBOBNUSHX52DIIAOOJJMACKFTFU7FRIWJRRNZG2K5YRCETVW",
+    standalone: {
+        networkPassphrase: "Standalone Network ; February 2017",
+        contractId: "CBHJTG65F3KBVKOEOZTPUIH47JK54WWTHOKIYRLJ64DVLZCC4ZYU6W5U",
     }
 } as const
 
@@ -50,12 +50,12 @@ export const Errors = {
 /**
     
     */
-export type StorageKey = {tag: "TokenAddress", values: void} | {tag: "FeeAddress", values: void} | {tag: "Color", values: readonly [string, string, u32]} | {tag: "Colors", values: readonly [string]} | {tag: "Glyph", values: readonly [Buffer]} | {tag: "Dust", values: readonly [string]} | {tag: "GlyphOwner", values: readonly [Buffer]} | {tag: "GlyphMinter", values: readonly [Buffer]} | {tag: "GlyphOffer", values: readonly [Buffer]} | {tag: "AssetOffer", values: readonly [Buffer, string, i128]};
+export type StorageKey = {tag: "OwnerAddress", values: void} | {tag: "TokenAddress", values: void} | {tag: "FeeAddress", values: void} | {tag: "MaxEntryLifetime", values: void} | {tag: "MaxPaymentCount", values: void} | {tag: "MinterRoyaltyRate", values: void} | {tag: "MinerRoyaltyRate", values: void} | {tag: "Color", values: readonly [string, string, u32]} | {tag: "Colors", values: readonly [string]} | {tag: "Glyph", values: readonly [Buffer]} | {tag: "GlyphOwner", values: readonly [Buffer]} | {tag: "GlyphMinter", values: readonly [Buffer]} | {tag: "GlyphOffer", values: readonly [Buffer]} | {tag: "AssetOffer", values: readonly [Buffer, string, i128]};
 
 /**
     
     */
-export type HashType = {tag: "Colors", values: readonly [string]} | {tag: "Dust", values: readonly [string]} | {tag: "Glyph", values: readonly [Buffer]};
+export type HashType = {tag: "Colors", values: readonly [string]} | {tag: "Glyph", values: readonly [Buffer]};
 
 /**
     
@@ -95,10 +95,12 @@ export class Contract {
     spec: ContractSpec;
     constructor(public readonly options: ClassOptions) {
         this.spec = new ContractSpec([
-            "AAAAAAAAAAAAAAAKaW5pdGlhbGl6ZQAAAAAAAgAAAAAAAAANdG9rZW5fYWRkcmVzcwAAAAAAABMAAAAAAAAAC2ZlZV9hZGRyZXNzAAAAABMAAAAA",
-        "AAAAAAAAAAAAAAALY29sb3JzX21pbmUAAAAABAAAAAAAAAAGc291cmNlAAAAAAATAAAAAAAAAAVtaW5lcgAAAAAAA+gAAAATAAAAAAAAAAJ0bwAAAAAD6AAAABMAAAAAAAAABmNvbG9ycwAAAAAD7AAAAAQAAAAEAAAAAA==",
+            "AAAAAAAAAAAAAAAKaW5pdGlhbGl6ZQAAAAAAAwAAAAAAAAANb3duZXJfYWRkcmVzcwAAAAAAABMAAAAAAAAADXRva2VuX2FkZHJlc3MAAAAAAAATAAAAAAAAAAtmZWVfYWRkcmVzcwAAAAATAAAAAA==",
+        "AAAAAAAAAAAAAAAGdXBkYXRlAAAAAAAHAAAAAAAAAA1vd25lcl9hZGRyZXNzAAAAAAAD6AAAABMAAAAAAAAADXRva2VuX2FkZHJlc3MAAAAAAAPoAAAAEwAAAAAAAAALZmVlX2FkZHJlc3MAAAAD6AAAABMAAAAAAAAAEm1heF9lbnRyeV9saWZldGltZQAAAAAD6AAAAAQAAAAAAAAAEW1heF9wYXltZW50X2NvdW50AAAAAAAD6AAAAAQAAAAAAAAAE21pbnRlcl9yb3lhbHR5X3JhdGUAAAAD6AAAAAsAAAAAAAAAEm1pbmVyX3JveWFsdHlfcmF0ZQAAAAAD6AAAAAsAAAAA",
+        "AAAAAAAAAAAAAAAHdXBncmFkZQAAAAABAAAAAAAAAARoYXNoAAAD7gAAACAAAAAA",
+        "AAAAAAAAAAAAAAALY29sb3JzX21pbmUAAAAABAAAAAAAAAAGc291cmNlAAAAAAATAAAAAAAAAAZjb2xvcnMAAAAAA+wAAAAEAAAABAAAAAAAAAAFbWluZXIAAAAAAAPoAAAAEwAAAAAAAAACdG8AAAAAA+gAAAATAAAAAA==",
         "AAAAAAAAAAAAAAAPY29sb3JzX3RyYW5zZmVyAAAAAAMAAAAAAAAABGZyb20AAAATAAAAAAAAAAJ0bwAAAAAAEwAAAAAAAAAGY29sb3JzAAAAAAPqAAAD7QAAAAMAAAATAAAABAAAAAQAAAAA",
-        "AAAAAAAAAAAAAAANY29sb3JfYmFsYW5jZQAAAAAAAAMAAAAAAAAABW93bmVyAAAAAAAAEwAAAAAAAAAFbWluZXIAAAAAAAPoAAAAEwAAAAAAAAAFY29sb3IAAAAAAAAEAAAAAQAAAAQ=",
+        "AAAAAAAAAAAAAAANY29sb3JfYmFsYW5jZQAAAAAAAAMAAAAAAAAABW93bmVyAAAAAAAAEwAAAAAAAAAFY29sb3IAAAAAAAAEAAAAAAAAAAVtaW5lcgAAAAAAA+gAAAATAAAAAQAAAAQ=",
         "AAAAAAAAAAAAAAAKZ2x5cGhfbWludAAAAAAABAAAAAAAAAAGbWludGVyAAAAAAATAAAAAAAAAAJ0bwAAAAAD6AAAABMAAAAAAAAABmNvbG9ycwAAAAAD7AAAABMAAAPsAAAABAAAA+oAAAAEAAAAAAAAAAV3aWR0aAAAAAAAA+gAAAAEAAAAAQAAA+gAAAPuAAAAIA==",
         "AAAAAAAAAAAAAAAOZ2x5cGhfdHJhbnNmZXIAAAAAAAIAAAAAAAAAAnRvAAAAAAATAAAAAAAAAAloYXNoX3R5cGUAAAAAAAfQAAAACEhhc2hUeXBlAAAAAA==",
         "AAAAAAAAAAAAAAAMZ2x5cGhfc2NyYXBlAAAAAgAAAAAAAAACdG8AAAAAA+gAAAATAAAAAAAAAAloYXNoX3R5cGUAAAAAAAfQAAAACEhhc2hUeXBlAAAAAA==",
@@ -107,8 +109,8 @@ export class Contract {
         "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",
-        "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",
+        "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",
@@ -117,6 +119,8 @@ export class Contract {
     }
     private readonly parsers = {
         initialize: () => {},
+        update: () => {},
+        upgrade: () => {},
         colorsMine: () => {},
         colorsTransfer: () => {},
         colorBalance: (result: XDR_BASE64): u32 => this.spec.funcResToNative("color_balance", result),
@@ -153,6 +157,8 @@ export class Contract {
     }
     public readonly fromJSON = {
         initialize: this.txFromJSON<ReturnType<typeof this.parsers['initialize']>>,
+        update: this.txFromJSON<ReturnType<typeof this.parsers['update']>>,
+        upgrade: this.txFromJSON<ReturnType<typeof this.parsers['upgrade']>>,
         colorsMine: this.txFromJSON<ReturnType<typeof this.parsers['colorsMine']>>,
         colorsTransfer: this.txFromJSON<ReturnType<typeof this.parsers['colorsTransfer']>>,
         colorBalance: this.txFromJSON<ReturnType<typeof this.parsers['colorBalance']>>,
@@ -167,7 +173,7 @@ export class Contract {
         /**
     * Construct and simulate a initialize transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
     */
-    initialize = async ({token_address, fee_address}: {token_address: string, fee_address: string}, options: {
+    initialize = async ({owner_address, token_address, fee_address}: {owner_address: string, token_address: string, fee_address: string}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -175,7 +181,7 @@ export class Contract {
     } = {}) => {
         return await AssembledTransaction.fromSimulation({
             method: 'initialize',
-            args: this.spec.funcArgsToScVals("initialize", {token_address: new Address(token_address), fee_address: new Address(fee_address)}),
+            args: this.spec.funcArgsToScVals("initialize", {owner_address: new Address(owner_address), token_address: new Address(token_address), fee_address: new Address(fee_address)}),
             ...options,
             ...this.options,
             errorTypes: Errors,
@@ -185,9 +191,49 @@ export class Contract {
 
 
         /**
+    * Construct and simulate a update transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+    */
+    update = async ({owner_address, token_address, fee_address, max_entry_lifetime, max_payment_count, minter_royalty_rate, miner_royalty_rate}: {owner_address: Option<string>, token_address: Option<string>, fee_address: Option<string>, max_entry_lifetime: Option<u32>, max_payment_count: Option<u32>, minter_royalty_rate: Option<i128>, miner_royalty_rate: Option<i128>}, options: {
+        /**
+         * The fee to pay for the transaction. Default: 100.
+         */
+        fee?: number,
+    } = {}) => {
+        return await AssembledTransaction.fromSimulation({
+            method: 'update',
+            args: this.spec.funcArgsToScVals("update", {owner_address, token_address, fee_address, max_entry_lifetime, max_payment_count, minter_royalty_rate, miner_royalty_rate}),
+            ...options,
+            ...this.options,
+            errorTypes: Errors,
+            parseResultXdr: this.parsers['update'],
+        });
+    }
+
+
+        /**
+    * Construct and simulate a upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+    */
+    upgrade = async ({hash}: {hash: Buffer}, options: {
+        /**
+         * The fee to pay for the transaction. Default: 100.
+         */
+        fee?: number,
+    } = {}) => {
+        return await AssembledTransaction.fromSimulation({
+            method: 'upgrade',
+            args: this.spec.funcArgsToScVals("upgrade", {hash}),
+            ...options,
+            ...this.options,
+            errorTypes: Errors,
+            parseResultXdr: this.parsers['upgrade'],
+        });
+    }
+
+
+        /**
     * Construct and simulate a colors_mine transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
     */
-    colorsMine = async ({source, miner, to, colors}: {source: string, miner: Option<string>, to: Option<string>, colors: Map<u32, u32>}, options: {
+    colorsMine = async ({source, colors, miner, to}: {source: string, colors: Map<u32, u32>, miner: Option<string>, to: Option<string>}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -195,7 +241,7 @@ export class Contract {
     } = {}) => {
         return await AssembledTransaction.fromSimulation({
             method: 'colors_mine',
-            args: this.spec.funcArgsToScVals("colors_mine", {source: new Address(source), miner, to, colors}),
+            args: this.spec.funcArgsToScVals("colors_mine", {source: new Address(source), colors, miner, to}),
             ...options,
             ...this.options,
             errorTypes: Errors,
@@ -227,7 +273,7 @@ export class Contract {
         /**
     * Construct and simulate a color_balance transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
     */
-    colorBalance = async ({owner, miner, color}: {owner: string, miner: Option<string>, color: u32}, options: {
+    colorBalance = async ({owner, color, miner}: {owner: string, color: u32, miner: Option<string>}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -235,7 +281,7 @@ export class Contract {
     } = {}) => {
         return await AssembledTransaction.fromSimulation({
             method: 'color_balance',
-            args: this.spec.funcArgsToScVals("color_balance", {owner: new Address(owner), miner, color}),
+            args: this.spec.funcArgsToScVals("color_balance", {owner: new Address(owner), color, miner}),
             ...options,
             ...this.options,
             errorTypes: Errors,
