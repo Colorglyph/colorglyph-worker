@@ -20,12 +20,27 @@ export class Config {
 
     constructor(env: Env) {
         const isLocal = env.NETWORK === 'local'
+        const isFuture = env.NETWORK === 'future'
+        const isTest = env.NETWORK === 'test'
 
         this.contractId = env.CONTRACT_ID
         this.oceanKp = Keypair.fromSecret(env.OCEAN_SK)
-        this.rpcUrl = isLocal ? 'http://localhost:8000/soroban/rpc' : 'https://rpc-futurenet.stellar.org'
-        this.networkPassphrase = isLocal ? Networks.STANDALONE : Networks.FUTURENET
-        this.horizon = new Horizon.Server(isLocal ? 'http://localhost:8000' : 'https://horizon-futurenet.stellar.org', { allowHttp: isLocal })
+
+        this.rpcUrl = isLocal ? 'http://localhost:8000/soroban/rpc' 
+        : isFuture ? 'https://rpc-futurenet.stellar.org' 
+        : isTest ? 'https://soroban-testnet.stellar.org' 
+        : 'http://67.205.175.159:8000/soroban/rpc'
+
+        this.networkPassphrase = isLocal ? Networks.STANDALONE 
+        : isFuture ? Networks.FUTURENET
+        : isTest ? Networks.TESTNET
+        : Networks.PUBLIC
+
+        this.horizon = new Horizon.Server(isLocal ? 'http://localhost:8000' 
+        : isFuture ? 'https://horizon-futurenet.stellar.org'
+        : isTest ? 'https://horizon-testnet.stellar.org'
+        : 'https://horizon.stellar.org'
+        , { allowHttp: isLocal })
         this.rpc = new SorobanRpc.Server(this.rpcUrl, { allowHttp: isLocal })
     }
 }

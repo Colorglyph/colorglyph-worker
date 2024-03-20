@@ -8,30 +8,17 @@ import { AssembledTransaction } from 'colorglyph-sdk'
 export async function sendTx(message: Message<MintJob>, env: Env, ctx: ExecutionContext) {
     const config = new Config(env)
     const { rpc, networkPassphrase } = config
-    const id = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1') // Hard coded because we need to resolve to the same DO app wide
-    const stub = env.CHANNEL_ACCOUNT.get(id)
-
-    let channel!: string
 
     try {
         const body = message.body
 
         // NOTE everywhere we're using stub.fetch we don't have the nice error handling that fetcher gives us so we need to roll our own error handling. 
         // Keep in mind though there may be instances where failure shouldn't kill the whole task. Think returning a channel that's not currently busy for whatever reason
-        await stub
-            .fetch('http://fake-host/take')
-            .then(async (res) => {
-                if (res.ok)
-                    channel = await res.text()
-                else
-                    throw await res.json()
-            })
 
-        const channel_keypair = Keypair.fromSecret(channel)
-        const { contract: Colorglyph } = new Contract(channel_keypair, config)
         const keypair = Keypair.fromSecret(body.secret)
         const pubkey = keypair.publicKey()
         const fee = 10_000_000
+        const { contract: Colorglyph } = new Contract(keypair, config)
 
         let preTx: AssembledTransaction<any>
 
@@ -77,7 +64,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
         if (body.type === 'mine')
             simTx.transactionData.setResources(
                 preTx.simulationData.transactionData.resources().instructions(),
-                preTx.simulationData.transactionData.resources().readBytes() + 188, // TODO <-- be smarter about this. We only need it if we simulated a key that didn't exist in a prior submission but will exist in this submission (there's a key overlap where not every color is unique)
+                preTx.simulationData.transactionData.resources().readBytes(),
                 preTx.simulationData.transactionData.resources().writeBytes(),
             )
 
@@ -101,12 +88,10 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
             });
         }
 
-        // simTx.transactionData.setResourceFee(Number(preTx.simulationData.transactionData.resourceFee()) + getRandomNumber(100_000, 1_000_000))
-
         const tempTx = new Transaction(preTx.raw.toXDR(), networkPassphrase)
         const readyTx = SorobanRpc.assembleTransaction(tempTx, simTx).build()
 
-        readyTx.sign(channel_keypair)
+        readyTx.sign(keypair)
 
         const subTx = await rpc.sendTransaction(readyTx)
 
@@ -120,7 +105,6 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                 await env.TX_GET.send({
                     ...body, // send along the `body` in case we need to re-queue later
                     hash: subTx.hash,
-                    channel // send along the channel secret so we can return it to the pool later
                 })
 
                 break;
@@ -128,7 +112,6 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                 console.log(`
                     ${body.id}
                     ${pubkey}
-                    ${channel_keypair.publicKey()}
                     ${JSON.stringify(subTx, null, 2)}
                 `)
 
@@ -156,15 +139,6 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
         // TODO save the error?
         // maybe in Sentry as this won't be Stellar/Soroban specific
-
-        // return the channel account
-        if (channel)
-            await stub
-                .fetch(`http://fake-host/return/${channel}`, { method: 'PUT' })
-                .then((res) => {
-                    if (res.ok) return
-                    else throw new StatusError(res.status, res.statusText)
-                })
 
         // Wait 5 seconds before retrying
         // NOTE if we increase the messages per batch we'll need to move this sleep outside this fn so we don't compound sleeps

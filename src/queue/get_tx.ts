@@ -1,36 +1,18 @@
 import { SorobanRpc } from '@stellar/stellar-sdk'
 import { StatusError } from "itty-router"
 import { writeErrorToR2 } from "../utils/writeErrorToR2"
-import { Config } from "./common"
+import { Config, sleep } from "./common"
 
-export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionContext): Promise<boolean> {
+export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionContext) {
     const { rpc } = new Config(env)
-    const id = env.CHANNEL_ACCOUNT.idFromName('Colorglyph.v1')
-    const stub = env.CHANNEL_ACCOUNT.get(id)
     const body = message.body
     const hash = body.hash!
-
-    let res: SorobanRpc.Api.GetTransactionResponse
-
-    try {
-        res = await rpc.getTransaction(hash)
-    } catch {
-        message.retry()
-        return true
-    }
+    const res = await rpc.getTransaction(hash)
 
     switch (res.status) {
         case 'SUCCESS':
             try {
                 console.log(res.status, hash)
-
-                // return the channel
-                await stub
-                    .fetch(`http://fake-host/return/${body.channel}`, { method: 'PUT' })
-                    .then((res) => {
-                        if (res.ok) return
-                        else throw new StatusError(res.status, res.statusText)
-                    })
 
                 // update job progress
                 const id = env.MINT_FACTORY.idFromString(body.id)
@@ -52,25 +34,17 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
 
                 // if the batch fails further down we don't want to retry this message
                 message.ack()
-                return false
             } catch {
                 message.retry()
-                return true
             }
+            break;
         case 'NOT_FOUND':
             console.log(res.status, hash)
+            await sleep(5) // TODO due to this need to wait to retry we should allow more than 1 get per 5 seconds probably
             message.retry()
-            return true
+            break;
         case 'FAILED':
             try {
-                // return the channel
-                await stub
-                    .fetch(`http://fake-host/return/${body.channel}`, { method: 'PUT' })
-                    .then((res) => {
-                        if (res.ok) return
-                        else throw new StatusError(res.status, res.statusText)
-                    })
-
                 // save the error
                 await writeErrorToR2(body, hash, env)
 
@@ -80,11 +54,10 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
 
                 // this was a failure but not one we want to retry on unless an `await` failed
                 message.ack()
-                return false
             } catch {
                 message.retry() // safe because the tx will continue to return FAILED, this isn't a tx retry, just an away retry to ensure the channel is returned and the error is logged
-                return true
             }
+            break;
         default:
             throw new StatusError(404, `Status ${res.status} not found`)
     }

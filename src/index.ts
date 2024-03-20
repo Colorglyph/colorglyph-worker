@@ -7,8 +7,6 @@ import {
 import { mintQueue } from './fetch/mint_queue'
 import { processQueue } from './queue/process'
 import { MintFactory } from './durable_object/mint_factory'
-import { ChannelAccount } from './durable_object/channel_account'
-import { debug } from './fetch/debug'
 import { image } from './fetch/image'
 import { glyphs } from './fetch/glyphs'
 import { flush } from './fetch/flush'
@@ -23,8 +21,6 @@ router
 	.post('/mint', mintQueue)
 	.get('/glyphs', glyphs)
 	.get('/image/:hash', image)
-	.get('/debug', debug)
-	.delete('/:type/:secret', debug)
 	.delete('/:id', flush)
 	.all('*', () => error(404))
 
@@ -43,6 +39,5 @@ const handler = {
 
 export {
 	MintFactory,
-	ChannelAccount,
 	handler as default
 }

@@ -115,23 +115,6 @@ export class MintFactory {
         // if it's not, fail this request
         const glyph = await this.env.GLYPHS.get(hash, 'arrayBuffer')
 
-        let map = new Map()
-
-        for (const i in body.palette) {
-            const index = Number(i)
-            const color = body.palette[index]
-            const amount: number = map.get(color) || 0
-            map.set(color, amount + 1)
-
-            if (
-                index === body.palette.length - 1
-                || map.size >= maxMineSize
-            ) {
-                sanitizedPaletteArray.push([...map.entries()])
-                map = new Map()
-            }
-        }
-
         if (!glyph) { // TEMP until we handle the scrape scenario better as the status of a glyph should change between minted and scraped (also probably means that status should be stored outside the GLYPH KV itself)
             // Pre-gen the image and store in R2
             const image = await paletteToBase64(body.palette, body.width)
@@ -148,8 +131,34 @@ export class MintFactory {
             })
         }
 
+        let map = new Map()
+
+        for (const i in body.palette) {
+            const index = Number(i)
+            const color = body.palette[index]
+            const amount: number = map.get(color) || 0
+            
+            map.set(color, amount + 1)
+
+            if (
+                index === body.palette.length - 1
+                || map.size >= maxMineSize
+            ) {
+                sanitizedPaletteArray.push([...map.entries()])
+                map = new Map()
+            }
+        }
+
+        // queue up the mine jobs
+        const mineJobs: MintJob[] = sanitizedPaletteArray.map((slice) => ({
+            id: this.id.toString(),
+            type: 'mine',
+            secret: body.secret,
+            palette: slice,
+        }))
+
         await this.storage.put('status', 'mining')
-        await this.storage.put('mine_total', sanitizedPaletteArray.length)
+        await this.storage.put('mine_total', mineJobs.length)
         await this.storage.put('mine_progress', 0)
         await this.storage.put('body', {
             hash,
@@ -162,28 +171,11 @@ export class MintFactory {
 
         // TODO we should probably save every job to the KV for review and cleanup in a cron job later
 
-        // queue up the mine jobs
-        const mineJobs: { body: MintJob }[] = sanitizedPaletteArray.map((slice) => ({
-            body: {
-                id: this.id.toString(),
-                type: 'mine',
-                secret: body.secret,
-                palette: slice,
-            }
-        }))
+        // Kick off the first mine job
+        const mineJob = mineJobs.shift()!
 
-        const errors = await Promise
-            .allSettled(chunkArray(mineJobs, 100).map((mineJobsChunk) =>
-                this.env.TX_SEND.sendBatch(mineJobsChunk))
-            )
-            .then((res) => res.filter((res) => res.status === 'rejected'))
-
-        if (errors.length) {
-            // TODO this is big bad btw, would result in an incompletable mint
-            // Thankfully because we save how much work we _should_ be doing we'll never attempt a full mint of an incomplete partial mint
-            console.log(`!! we didn't queue all the mine jobs !!`)
-            console.log(errors)
-        }
+        await this.storage.put('mine_jobs', mineJobs)
+        await this.env.TX_SEND.send(mineJob)
 
         return text(this.id.toString())
     }
@@ -236,19 +228,31 @@ export class MintFactory {
     }
 
     async mineProgress(body: any) {
-        const mineTotal: number = await this.storage.get('mine_total') || 0
+        // const mineTotal: number = await this.storage.get('mine_total') || 0
 
-        if (!mineTotal)
-            throw new StatusError(400, 'Nothing to mine')
+        // if (!mineTotal)
+        //     throw new StatusError(400, 'Nothing to mine')
 
-        let mineProgress: number = await this.storage.get('mine_progress') || 0
+        // let mineProgress: number = await this.storage.get('mine_progress') || 0
 
-        mineProgress++
+        // mineProgress++
 
-        await this.storage.put('mine_progress', mineProgress)
+        // await this.storage.put('mine_progress', mineProgress)
+
+        // Look up the next `mint_job` and queue it then update the `mint_job` with that job removed
+        const mineJobs: MintJob[] = await this.storage.get('mine_jobs') || []
+        const mineTotal: number = await this.storage.get('mine_total') || mineJobs.length
+        const mineJob = mineJobs.shift()
+
+        await this.storage.put('mine_progress', mineTotal - mineJobs.length)
+
+        if (mineJob) {
+            await this.env.TX_SEND.send(mineJob)
+            await this.storage.put('mine_jobs', mineJobs)
+        }
 
         // mining is done, move on to minting
-        if (mineProgress === mineTotal) {
+        else {
             const sanitizedPaletteArray: [number, number[]][][] = []
 
             let count = 0
