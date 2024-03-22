@@ -335,7 +335,7 @@ export class MintFactory {
         if (hash) {
             const fee = await this.storage.get('cost')
 
-            console.log(fee)
+            console.log('FEE', fee)
 
             await this.env.GLYPHS.put(hash, new Uint8Array(body.palette), {
                 metadata: {

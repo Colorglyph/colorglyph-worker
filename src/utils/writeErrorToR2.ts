@@ -2,6 +2,7 @@ import { SorobanRpc } from '@stellar/stellar-sdk'
 import { Config } from "../queue/common"
 
 const encoder = new TextEncoder()
+const decoder = new TextDecoder()
 
 export async function writeErrorToR2(
     body: MintJob, 
@@ -50,6 +51,8 @@ export async function writeErrorToR2(
             data = encoder.encode(`${await existing?.text()}\n\n${events}\n\n${JSON.stringify(fees, null, 2)}\n\n${extra}`)
         }        
     }
+
+    console.log(decoder.decode(data));
 
     await env.ERRORS.put(body.id, data)
 }

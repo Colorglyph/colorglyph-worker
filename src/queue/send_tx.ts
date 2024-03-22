@@ -17,7 +17,6 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
         const keypair = Keypair.fromSecret(body.secret)
         const pubkey = keypair.publicKey()
-        const fee = 10_000_000
         const { contract: Colorglyph } = new Contract(keypair, config)
 
         let preTx: AssembledTransaction<any>
@@ -31,7 +30,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                     miner: undefined,
                     to: undefined,
                     colors: new Map(sortMapKeys(mineMap))
-                }, { fee })
+                })
                 break;
             case 'mint':
                 // TODO requires the colors being used to mint have been mined by the secret (pubkey hardcoded)
@@ -44,7 +43,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                     to: undefined,
                     colors: mintMap,
                     width: body.width,
-                }, { fee })
+                })
                 break;
             default:
                 throw new StatusError(404, `Type ${body.type} not found`)
@@ -61,12 +60,17 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
         if (!SorobanRpc.Api.isSimulationSuccess(simTx)) // Error, Raw, Restore
             throw new StatusError(400, `Transaction simulation failed: "${simTx.error}"`)
 
-        if (body.type === 'mine')
+        // TEMP...hopefully
+        if (body.type === 'mine') {
+            simTx.minResourceFee = (2 ** 32 - 1 - Number(preTx.raw.fee)).toString() // TEMP
+
             simTx.transactionData.setResources(
                 preTx.simulationData.transactionData.resources().instructions(),
-                preTx.simulationData.transactionData.resources().readBytes(),
-                preTx.simulationData.transactionData.resources().writeBytes(),
+                preTx.simulationData.transactionData.resources().readBytes() + 52, // TODO <-- be smarter about this. We only need it if we simulated a key that didn't exist in a prior submission but will exist in this submission (there's a key overlap where not every color is unique)
+                preTx.simulationData.transactionData.resources().writeBytes() + 52, // TODO <-- see above (once this is live https://github.com/stellar/rs-soroban-env/pull/1363 we should be golden)
             )
+        }
+        ////
 
         if (
             body.type === 'mint'
@@ -92,6 +96,8 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
         const readyTx = SorobanRpc.assembleTransaction(tempTx, simTx).build()
 
         readyTx.sign(keypair)
+
+        console.log(readyTx.toXDR());
 
         const subTx = await rpc.sendTransaction(readyTx)
 

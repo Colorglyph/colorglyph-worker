@@ -1,4 +1,3 @@
-import { SorobanRpc } from '@stellar/stellar-sdk'
 import { StatusError } from "itty-router"
 import { writeErrorToR2 } from "../utils/writeErrorToR2"
 import { Config, sleep } from "./common"
@@ -48,7 +47,7 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
                 // save the error
                 await writeErrorToR2(body, hash, env)
 
-                // TODO there can be failures do to the resourcing in which case we should toss this hash but re-queue the tx
+                // TODO there can be failures due to the resourcing in which case we should toss this hash but re-queue the tx
                 // we should be somewhat careful here though as this type of failure likely means funds were spent
                 // await env.TX_SEND.send(body) // !! bad idea !!
 
