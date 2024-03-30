@@ -47,12 +47,7 @@ export async function getGlyphHash(palette: number[], width: number) {
         ])
     }
 
-    rgb_palette.push(...[
-        0,
-        width >> 16,
-        width >> 8 & 0xff,
-        width & 0xff,
-    ])
+    rgb_palette.push(width)
 
     const digest = new Uint8Array(
         await crypto.subtle.digest(

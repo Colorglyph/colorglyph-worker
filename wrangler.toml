@@ -4,7 +4,7 @@ compatibility_date = "2023-12-12"
 workers_dev = true
 
 kv_namespaces = [
-    { binding = "GLYPHS", id = "fbfea727106c4c2893fe8d03563d0387" }
+    { binding = "GLYPHS", id = "4130f4e274094e62a6609f5801d0bdba" }
 ]
 
 [[r2_buckets]]

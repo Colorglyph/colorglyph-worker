@@ -1,5 +1,5 @@
-const maxMineSize = 17 // 500
-const maxMintSize = 18 // 200
+const maxMineSize = 17 // TODO see if we can increase these now thanks to phase 2
+const maxMintSize = 18
 
 import {
     error,
@@ -11,7 +11,7 @@ import {
     text,
 } from 'itty-router'
 import { xdr } from '@stellar/stellar-sdk'
-import { chunkArray, getGlyphHash } from '../utils'
+import { getGlyphHash } from '../utils'
 import { paletteToBase64 } from '../utils/paletteToBase64'
 import BigNumber from 'bignumber.js'
 
@@ -299,6 +299,7 @@ export class MintFactory {
 
             await this.storage.put('mint_jobs', mintJobs)
             await this.env.TX_SEND.send(mintJob)
+            await this.storage.delete('mine_jobs')
         }
     }
     async mintProgress(body: any) {

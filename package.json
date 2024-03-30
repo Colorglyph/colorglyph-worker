@@ -9,14 +9,14 @@
   },
   "dependencies": {
     "@lunapaint/png-codec": "^0.2.0",
+    "@stellar/stellar-sdk": "git+https://github.com/stellar/js-stellar-sdk.git#ba98a6b5c49c910fae487974888096b8a23ab77a",
+    "@vespaiach/axios-fetch-adapter": "^0.3.1",
+    "axios": "^0.26.1",
     "bignumber.js": "^9.1.2",
     "buffer": "^6.0.3",
     "colorglyph-sdk": "file:./colorglyph-sdk",
     "itty-fetcher": "^0.9.4",
-    "itty-router": "^4.2.2",
-    "@stellar/stellar-sdk": "git+https://github.com/stellar/js-stellar-sdk.git#ba98a6b5c49c910fae487974888096b8a23ab77a",
-    "@vespaiach/axios-fetch-adapter": "^0.3.1",
-    "axios": "^0.26.1"
+    "itty-router": "^4.2.2"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240320.1",

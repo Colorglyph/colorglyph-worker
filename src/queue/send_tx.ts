@@ -97,7 +97,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
         readyTx.sign(keypair)
 
-        console.log(readyTx.toXDR());
+        // console.log(readyTx.toXDR());
 
         const subTx = await rpc.sendTransaction(readyTx)
 
@@ -107,7 +107,6 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
                 message.ack()
 
-                await sleep(1) // TEMP during Phase 1. Throttle TX_SEND to 1 successfully sent tx per second
                 await env.TX_GET.send({
                     ...body, // send along the `body` in case we need to re-queue later
                     hash: subTx.hash,

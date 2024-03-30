@@ -1,7 +1,6 @@
 import { StatusError } from "itty-router"
 import { sendTx } from "./send_tx"
 import { getTx } from "./get_tx"
-import { sleep } from "./common"
 
 export async function processQueue(batch: MessageBatch<MintJob>, env: Env, ctx: ExecutionContext) {
     if (batch.messages.length > 1)
