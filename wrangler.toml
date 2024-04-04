@@ -1,6 +1,6 @@
 name = "colorglyph-worker"
 main = "src/index.ts"
-compatibility_date = "2023-12-12"
+compatibility_date = "2024-04-04"
 workers_dev = true
 
 kv_namespaces = [
@@ -66,6 +66,7 @@ max_concurrency = 1 # consider allowing this to autoscale
 # max_concurrency = 1
 
 [vars]
+ENV = "production"
 NETWORK = "test"
 CONTRACT_ID = "CDDUAYFGIV6MGWHHV7IONJ45FK5ATDRQ4HU62WE4LDHSNZDJCL7VHG2U"
 # OCEAN_PK = "GDKZ4O7446TNQTR3NZVJTAS7FTF6B6P2VF3B5NT2SMB2BPAF5OMIJO4S"

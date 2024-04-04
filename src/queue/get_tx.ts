@@ -39,8 +39,11 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
             break;
         case 'NOT_FOUND':
             console.log(res.status, hash)
-            await sleep(5) // TODO due to this need to wait to retry we should allow more than 1 get per 5 seconds probably
-            message.retry()
+            
+            if (env.ENV === 'development')
+                await sleep(5)
+            
+            message.retry({ delaySeconds: 5 })
             break;
         case 'FAILED':
             try {

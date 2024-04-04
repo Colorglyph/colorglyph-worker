@@ -8,6 +8,7 @@ interface Env {
     NETWORK: local | future | test // TODO public
     CONTRACT_ID: string
     OCEAN_SK: string
+    ENV: development | production
 }
 
 interface MintRequest {

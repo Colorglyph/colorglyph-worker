@@ -146,8 +146,9 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
         // maybe in Sentry as this won't be Stellar/Soroban specific
 
         // Wait 5 seconds before retrying
-        // NOTE if we increase the messages per batch we'll need to move this sleep outside this fn so we don't compound sleeps
-        await sleep(5)
-        message.retry()
+        if (env.ENV === 'development')
+            await sleep(5)
+
+        message.retry({ delaySeconds: 5 })
     }
 }
