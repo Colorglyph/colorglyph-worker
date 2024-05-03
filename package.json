@@ -1,0 +1,28 @@
+{
+  "name": "colorglyph-worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "start": "wrangler dev --port 8787",
+    "build": "node esbuild.js"
+  },
+  "dependencies": {
+    "@lunapaint/png-codec": "^0.2.0",
+    "@stellar/stellar-sdk": "git+https://github.com/stellar/js-stellar-sdk.git#ca5ee388fee9c3ff91c28226fc8cf4618f2eee71",
+    "bignumber.js": "^9.1.2",
+    "colorglyph-sdk": "file:./colorglyph-sdk",
+    "itty-fetcher": "^0.9.4",
+    "itty-router": "^4.2.2"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240502.0",
+    "@stellar/tsconfig": "^1.0.2",
+    "@types/node": "^20.12.8",
+    "esbuild": "^0.20.2",
+    "esbuild-plugin-polyfill-node": "^0.3.0",
+    "typescript": "^5.4.5",
+    "wrangler": "^3.53.1"
+  }
+}

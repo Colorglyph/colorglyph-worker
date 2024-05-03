@@ -1,0 +1,78 @@
+name = "colorglyph-worker"
+main = "dist/index.js"
+compatibility_date = "2024-04-04"
+workers_dev = true
+
+kv_namespaces = [
+    { binding = "GLYPHS", id = "4130f4e274094e62a6609f5801d0bdba" }
+]
+
+[[r2_buckets]]
+binding = 'ERRORS'
+bucket_name = 'colorglyph-errors'
+
+[[r2_buckets]]
+binding = 'IMAGES'
+bucket_name = 'colorglyph-images'
+
+[[durable_objects.bindings]]
+name = "MINT_FACTORY"
+class_name = "MintFactory"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["MintFactory"]
+
+[[migrations]]
+tag = "v2"
+new_classes = ["TestDo"]
+
+[[migrations]]
+tag = "v3"
+deleted_classes = ["TestDo"]
+
+[[migrations]]
+tag = "v4"
+deleted_classes = ["ChannelAccount"]
+
+[[queues.producers]]
+binding = "TX_SEND"
+queue = "colorglyph-tx-send"
+
+[[queues.producers]]
+binding = "TX_GET"
+queue = "colorglyph-tx-get"
+
+[[queues.consumers]]
+queue = "colorglyph-tx-send"
+max_batch_size = 1 # eventually we can probably scale this up but during Phase 1 it would just result in more NOT_FOUNDs and ERRORs than viable PENDINGs
+max_batch_timeout = 5
+max_retries = 6
+max_concurrency = 1
+
+[[queues.consumers]]
+queue = "colorglyph-tx-get"
+max_batch_size = 1 # consider increasing this (keep in mind RPC rate limits though)
+max_batch_timeout = 5
+max_retries = 12
+max_concurrency = 1 # consider allowing this to autoscale
+# dead_letter_queue = "colorglyph-tx-get-dlq"
+
+# [[queues.consumers]]
+# queue = "colorglyph-tx-get-dlq"
+# max_batch_size = 1
+# max_batch_timeout = 5
+# max_retries = 6
+# max_concurrency = 1
+
+[vars]
+ENV = "production"
+NETWORK = "future"
+CONTRACT_ID = "CB3MSUTY6O2XMYL2P3V2J4SPPGGZSRRFLUPSCFAHNBMTYO4FJ6HOYNP3"
+# OCEAN_PK = "GDKZ4O7446TNQTR3NZVJTAS7FTF6B6P2VF3B5NT2SMB2BPAF5OMIJO4S"
+
+[build]
+command = "npm run build"
+
+[define]
+global = "globalThis"
