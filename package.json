@@ -10,19 +10,19 @@
   },
   "dependencies": {
     "@lunapaint/png-codec": "^0.2.0",
-    "@stellar/stellar-sdk": "git+https://github.com/stellar/js-stellar-sdk.git#ca5ee388fee9c3ff91c28226fc8cf4618f2eee71",
+    "@stellar/stellar-sdk": "git+https://github.com/stellar/js-stellar-sdk.git#cf-worker",
     "bignumber.js": "^9.1.2",
     "colorglyph-sdk": "file:./colorglyph-sdk",
     "itty-fetcher": "^0.9.4",
     "itty-router": "^4.2.2"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240502.0",
+    "@cloudflare/workers-types": "^4.20240815.0",
     "@stellar/tsconfig": "^1.0.2",
-    "@types/node": "^20.12.8",
-    "esbuild": "^0.20.2",
+    "@types/node": "^22.4.1",
+    "esbuild": "^0.23.1",
     "esbuild-plugin-polyfill-node": "^0.3.0",
-    "typescript": "^5.4.5",
-    "wrangler": "^3.53.1"
+    "typescript": "^5.5.4",
+    "wrangler": "^3.72.0"
   }
 }

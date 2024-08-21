@@ -1,5 +1,5 @@
-const maxMineSize = 17 // TODO see if we can increase these now thanks to phase 2
-const maxMintSize = 18
+const maxMineSize = 23
+const maxMintSize = 24 // NOTE the first iteration must be 23 if the glyph hash is brand new
 
 import {
     error,
@@ -10,7 +10,6 @@ import {
     StatusError,
     text,
 } from 'itty-router'
-import { xdr } from '@stellar/stellar-sdk'
 import { getGlyphHash } from '../utils'
 import { paletteToBase64 } from '../utils/paletteToBase64'
 import BigNumber from 'bignumber.js'
@@ -186,7 +185,7 @@ export class MintFactory {
         if (!body)
             throw new StatusError(404, 'Body not found')
 
-        const { mintJob, feeCharged, returnValueXDR }: {
+        const { mintJob, feeCharged }: {
             mintJob: MintJob,
             feeCharged: string,
             returnValueXDR: string | undefined
@@ -202,7 +201,7 @@ export class MintFactory {
                 break;
             case 'mint':
                 if (mintJob.width)
-                    await this.mintComplete(body, returnValueXDR)
+                    await this.mintComplete(body)
                 else
                     await this.mintProgress(body)
                 break;
@@ -269,7 +268,7 @@ export class MintFactory {
 
                 if (
                     index === body.palette.length - 1
-                    || map.size >= maxMintSize
+                    || map.size >= (count === 1 ? maxMintSize : maxMintSize - 1)
                 ) {
                     sanitizedPaletteArray.push([...map.entries()])
                     count = 0
@@ -292,6 +291,7 @@ export class MintFactory {
                 type: 'mint',
                 palette: slice,
                 secret: body.secret,
+                hash: body.hash,
             }))
 
             // Kick off the first mint job
@@ -322,6 +322,7 @@ export class MintFactory {
                 type: 'mint',
                 palette: [],
                 secret: body.secret,
+                hash: body.hash,
                 width: body.width,
             }
 
@@ -329,26 +330,20 @@ export class MintFactory {
             await this.storage.delete('mint_jobs')
         }
     }
-    async mintComplete(body: any, returnValueXDR: string | undefined) {
-        const returnValue = xdr.ScVal.fromXDR(returnValueXDR!, 'base64')
-        const hash = returnValue.bytes().toString('hex')
+    async mintComplete(body: any) {
+        const fee = await this.storage.get('cost')
 
-        if (hash) {
-            const fee = await this.storage.get('cost')
+        console.log('FEE', fee)
 
-            console.log('FEE', fee)
-
-            await this.env.GLYPHS.put(hash, new Uint8Array(body.palette), {
-                metadata: {
-                    id: this.id.toString(),
-                    fee,
-                    width: body.width,
-                    length: body.palette.length,
-                    status: 'minted', // system oriented. i.e. `minted|scraped`
-                    mishash: body.hash !== hash ? body.hash : undefined, // realistically this should never happen, but if it does we need to save both hashes
-                }
-            })
-        }
+        await this.env.GLYPHS.put(body.hash, new Uint8Array(body.palette), {
+            metadata: {
+                id: this.id.toString(),
+                fee,
+                width: body.width,
+                length: body.palette.length,
+                status: 'minted', // system oriented. i.e. `minted|scraped`
+            }
+        })
 
         await this.flushAll()
     }

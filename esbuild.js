@@ -5,7 +5,6 @@ build({
     bundle: true,
 	format: 'esm',
 	charset: 'utf8',
-	sourcemap: false,
 	outfile: "dist/index.js",
 	entryPoints: ["src/index.ts"],
 	minify: true,

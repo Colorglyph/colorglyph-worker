@@ -1,10 +1,12 @@
-import { ContractSpec, Address } from '@stellar/stellar-sdk';
 import { Buffer } from "buffer";
+import { Address } from '@stellar/stellar-sdk';
 import {
   AssembledTransaction,
-  ContractClient,
-  ContractClientOptions,
-} from '@stellar/stellar-sdk/lib/contract_client/index.js';
+  Client as ContractClient,
+  ClientOptions as ContractClientOptions,
+  Result,
+  Spec as ContractSpec,
+} from '@stellar/stellar-sdk/contract';
 import type {
   u32,
   i32,
@@ -17,41 +19,44 @@ import type {
   Option,
   Typepoint,
   Duration,
-} from '@stellar/stellar-sdk/lib/contract_client';
-import { Result } from '@stellar/stellar-sdk/lib/rust_types/index.js';
+} from '@stellar/stellar-sdk/contract';
 export * from '@stellar/stellar-sdk'
-export * from '@stellar/stellar-sdk/lib/contract_client/index.js'
-export * from '@stellar/stellar-sdk/lib/rust_types/index.js'
+export * as contract from '@stellar/stellar-sdk/contract'
+export * as rpc from '@stellar/stellar-sdk/rpc'
 
 if (typeof window !== 'undefined') {
-    //@ts-ignore Buffer exists
-    window.Buffer = window.Buffer || Buffer;
+  //@ts-ignore Buffer exists
+  window.Buffer = window.Buffer || Buffer;
 }
 
 
 export const networks = {
-  futurenet: {
-    networkPassphrase: "Test SDF Future Network ; October 2022",
-    contractId: "CB3MSUTY6O2XMYL2P3V2J4SPPGGZSRRFLUPSCFAHNBMTYO4FJ6HOYNP3",
+  testnet: {
+    networkPassphrase: "Test SDF Network ; September 2015",
+    contractId: "CARZSHD6BLSLB5ENFR76QI4VNJ2XUHXEDCRG77VMLOAICRG7MZTIZPA7",
   }
 } as const
 
 export const Errors = {
-  1: {message:""},
-  2: {message:""},
-  3: {message:""},
-  4: {message:""},
-  5: {message:""},
-  6: {message:""},
-  7: {message:""},
-  8: {message:""},
-  9: {message:""}
+  1: {message:"NotFound"},
+
+  2: {message:"NotEmpty"},
+
+  3: {message:"NotAuthorized"},
+
+  4: {message:"NotPermitted"},
+
+  5: {message:"MissingWidth"},
+
+  6: {message:"MissingId"},
+
+  7: {message:"MissingAddress"},
+
+  8: {message:"MissingBuy"},
+
+  9: {message:"NotInitialized"}
 }
-export type StorageKey = {tag: "OwnerAddress", values: void} | {tag: "TokenAddress", values: void} | {tag: "FeeAddress", values: void} | {tag: "MaxEntryLifetime", values: void} | {tag: "MaxPaymentCount", values: void} | {tag: "MineMultiplier", values: void} | {tag: "MinterRoyaltyRate", values: void} | {tag: "MinerRoyaltyRate", values: void} | {tag: "Color", values: readonly [string, string, u32]} | {tag: "Colors", values: readonly [string]} | {tag: "Glyph", values: readonly [Buffer]} | {tag: "GlyphOwner", values: readonly [Buffer]} | {tag: "GlyphMinter", values: readonly [Buffer]} | {tag: "GlyphOffer", values: readonly [Buffer]} | {tag: "AssetOffer", values: readonly [Buffer, string, i128]};
-
-export type HashType = {tag: "Colors", values: readonly [string]} | {tag: "Glyph", values: readonly [Buffer]};
-
-export type GlyphType = {tag: "Colors", values: readonly [Map<string, Map<u32, Array<u32>>>]} | {tag: "Glyph", values: readonly [Glyph]};
+export type StorageKey = {tag: "OwnerAddress", values: void} | {tag: "TokenAddress", values: void} | {tag: "FeeAddress", values: void} | {tag: "MaxEntryLifetime", values: void} | {tag: "MaxPaymentCount", values: void} | {tag: "MineMultiplier", values: void} | {tag: "MinterRoyaltyRate", values: void} | {tag: "MinerRoyaltyRate", values: void} | {tag: "Color", values: readonly [string, string, u32]} | {tag: "Glyph", values: readonly [Buffer]} | {tag: "GlyphOwner", values: readonly [Buffer]} | {tag: "GlyphMinter", values: readonly [Buffer]} | {tag: "GlyphOffer", values: readonly [Buffer]} | {tag: "AssetOffer", values: readonly [Buffer, string, i128]};
 
 
 export interface Glyph {
@@ -189,7 +194,7 @@ export interface Client {
   /**
    * Construct and simulate a glyph_mint transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  glyph_mint: ({minter, to, colors, width}: {minter: string, to: Option<string>, colors: Map<string, Map<u32, Array<u32>>>, width: Option<u32>}, options?: {
+  glyph_mint: ({hash, minter, to, colors, width}: {hash: Buffer, minter: string, to: Option<string>, colors: Map<string, Map<u32, Array<u32>>>, width: Option<u32>}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -204,12 +209,12 @@ export interface Client {
      * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
      */
     simulate?: boolean;
-  }) => Promise<AssembledTransaction<Option<Buffer>>>
+  }) => Promise<AssembledTransaction<null>>
 
   /**
    * Construct and simulate a glyph_transfer transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  glyph_transfer: ({to, hash_type}: {to: string, hash_type: HashType}, options?: {
+  glyph_transfer: ({to, hash}: {to: string, hash: Buffer}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -229,7 +234,7 @@ export interface Client {
   /**
    * Construct and simulate a glyph_scrape transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  glyph_scrape: ({to, hash_type}: {to: Option<string>, hash_type: HashType}, options?: {
+  glyph_scrape: ({to, hash}: {to: Option<string>, hash: Buffer}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -249,7 +254,7 @@ export interface Client {
   /**
    * Construct and simulate a glyph_get transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  glyph_get: ({hash_type}: {hash_type: HashType}, options?: {
+  glyph_get: ({hash}: {hash: Buffer}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -264,7 +269,7 @@ export interface Client {
      * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
      */
     simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<GlyphType>>>
+  }) => Promise<AssembledTransaction<Result<Glyph>>>
 
   /**
    * Construct and simulate a offer_post transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -336,17 +341,15 @@ export class Client extends ContractClient {
         "AAAAAAAAAAAAAAALY29sb3JzX21pbmUAAAAABAAAAAAAAAAGc291cmNlAAAAAAATAAAAAAAAAAZjb2xvcnMAAAAAA+wAAAAEAAAABAAAAAAAAAAFbWluZXIAAAAAAAPoAAAAEwAAAAAAAAACdG8AAAAAA+gAAAATAAAAAA==",
         "AAAAAAAAAAAAAAAPY29sb3JzX3RyYW5zZmVyAAAAAAMAAAAAAAAABGZyb20AAAATAAAAAAAAAAJ0bwAAAAAAEwAAAAAAAAAGY29sb3JzAAAAAAPqAAAD7QAAAAMAAAATAAAABAAAAAQAAAAA",
         "AAAAAAAAAAAAAAANY29sb3JfYmFsYW5jZQAAAAAAAAMAAAAAAAAABW93bmVyAAAAAAAAEwAAAAAAAAAFY29sb3IAAAAAAAAEAAAAAAAAAAVtaW5lcgAAAAAAA+gAAAATAAAAAQAAAAQ=",
-        "AAAAAAAAAAAAAAAKZ2x5cGhfbWludAAAAAAABAAAAAAAAAAGbWludGVyAAAAAAATAAAAAAAAAAJ0bwAAAAAD6AAAABMAAAAAAAAABmNvbG9ycwAAAAAD7AAAABMAAAPsAAAABAAAA+oAAAAEAAAAAAAAAAV3aWR0aAAAAAAAA+gAAAAEAAAAAQAAA+gAAAPuAAAAIA==",
-        "AAAAAAAAAAAAAAAOZ2x5cGhfdHJhbnNmZXIAAAAAAAIAAAAAAAAAAnRvAAAAAAATAAAAAAAAAAloYXNoX3R5cGUAAAAAAAfQAAAACEhhc2hUeXBlAAAAAA==",
-        "AAAAAAAAAAAAAAAMZ2x5cGhfc2NyYXBlAAAAAgAAAAAAAAACdG8AAAAAA+gAAAATAAAAAAAAAAloYXNoX3R5cGUAAAAAAAfQAAAACEhhc2hUeXBlAAAAAA==",
-        "AAAAAAAAAAAAAAAJZ2x5cGhfZ2V0AAAAAAAAAQAAAAAAAAAJaGFzaF90eXBlAAAAAAAH0AAAAAhIYXNoVHlwZQAAAAEAAAPpAAAH0AAAAAlHbHlwaFR5cGUAAAAAAAAD",
+        "AAAAAAAAAAAAAAAKZ2x5cGhfbWludAAAAAAABQAAAAAAAAAEaGFzaAAAA+4AAAAgAAAAAAAAAAZtaW50ZXIAAAAAABMAAAAAAAAAAnRvAAAAAAPoAAAAEwAAAAAAAAAGY29sb3JzAAAAAAPsAAAAEwAAA+wAAAAEAAAD6gAAAAQAAAAAAAAABXdpZHRoAAAAAAAD6AAAAAQAAAAA",
+        "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",
-        "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",
+        "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" ]),
@@ -360,10 +363,10 @@ export class Client extends ContractClient {
         colors_mine: this.txFromJSON<null>,
         colors_transfer: this.txFromJSON<null>,
         color_balance: this.txFromJSON<u32>,
-        glyph_mint: this.txFromJSON<Option<Buffer>>,
+        glyph_mint: this.txFromJSON<null>,
         glyph_transfer: this.txFromJSON<null>,
         glyph_scrape: this.txFromJSON<null>,
-        glyph_get: this.txFromJSON<Result<GlyphType>>,
+        glyph_get: this.txFromJSON<Result<Glyph>>,
         offer_post: this.txFromJSON<Result<void>>,
         offer_delete: this.txFromJSON<Result<void>>,
         offers_get: this.txFromJSON<Result<void>>

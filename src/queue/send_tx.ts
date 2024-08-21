@@ -77,6 +77,7 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
                         contract: contractId,
                         function: 'glyph_mint',
                         args: [
+                            nativeToScVal(Buffer.from(body.hash!, 'hex')), // hash
                             nativeToScVal(pubkey, { type: 'address' }), // minter
                             nativeToScVal(undefined), // to
                             xdr.ScVal.scvMap(mintMapScVals), // colors

@@ -1,20 +1,17 @@
 {
-    "version": "0.0.0",
-    "name": "colorglyph-sdk",
-    "dependencies": {
-        "@stellar/freighter-api": "2.0.0",
-        "buffer": "6.0.3",
-        "@stellar/stellar-sdk": "git+https://github.com/stellar/js-stellar-sdk.git#ca5ee388fee9c3ff91c28226fc8cf4618f2eee71"
-    },
-    "scripts": {
-        "build": "node ./scripts/build.mjs"
-    },
-    "exports": {
-        "require": "./dist/cjs/index.js",
-        "import": "./dist/esm/index.js"
-    },
-    "typings": "dist/types/index.d.ts",
-    "devDependencies": {
-        "typescript": "5.4.5"
-    }
+  "version": "0.0.0",
+  "name": "colorglyph-sdk",
+  "type": "module",
+  "exports": "./dist/index.js",
+  "typings": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "buffer": "6.0.3",
+    "@stellar/stellar-sdk": "github:stellar/js-stellar-sdk#cf-worker"
+  },
+  "devDependencies": {
+    "typescript": "5.5.4"
+  }
 }
