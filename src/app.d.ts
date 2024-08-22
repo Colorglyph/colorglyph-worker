@@ -9,6 +9,9 @@ interface Env {
     CONTRACT_ID: string
     OCEAN_SK: string
     ENV: development | production
+    LAUNCHTUBE_JWT: string
+    MERCURY_EMAIL: string
+    MERCURY_PASSWORD: string
 }
 
 interface MintRequest {

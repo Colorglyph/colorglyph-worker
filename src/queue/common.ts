@@ -21,21 +21,21 @@ export class Config {
         this.contractId = env.CONTRACT_ID
         this.oceanKp = Keypair.fromSecret(env.OCEAN_SK)
 
-        this.rpcUrl = isLocal ? 'http://localhost:8000/soroban/rpc' 
-        : isFuture ? 'https://rpc-futurenet.stellar.org' 
-        : isTest ? 'https://soroban-testnet.stellar.org' 
-        : 'http://67.205.175.159:8000/soroban/rpc'
+        this.rpcUrl = isLocal ? 'http://localhost:8000/soroban/rpc'
+            : isFuture ? 'https://rpc-futurenet.stellar.org'
+                : isTest ? 'https://soroban-testnet.stellar.org'
+                    : 'http://67.205.175.159:8000/soroban/rpc'
 
-        this.networkPassphrase = isLocal ? Networks.STANDALONE 
-        : isFuture ? Networks.FUTURENET
-        : isTest ? Networks.TESTNET
-        : Networks.PUBLIC
+        this.networkPassphrase = isLocal ? Networks.STANDALONE
+            : isFuture ? Networks.FUTURENET
+                : isTest ? Networks.TESTNET
+                    : Networks.PUBLIC
 
-        this.horizon = new Horizon.Server(isLocal ? 'http://localhost:8000' 
-        : isFuture ? 'https://horizon-futurenet.stellar.org'
-        : isTest ? 'https://horizon-testnet.stellar.org'
-        : 'https://horizon.stellar.org'
-        , { allowHttp: isLocal })
+        this.horizon = new Horizon.Server(isLocal ? 'http://localhost:8000'
+            : isFuture ? 'https://horizon-futurenet.stellar.org'
+                : isTest ? 'https://horizon-testnet.stellar.org'
+                    : 'https://horizon.stellar.org'
+            , { allowHttp: isLocal })
         this.rpc = new SorobanRpc.Server(this.rpcUrl, { allowHttp: isLocal })
     }
 }
@@ -52,9 +52,9 @@ export class Contract {
             publicKey: keypair.publicKey(),
             async signTransaction(xdr: string) {
                 const transaction = new Transaction(xdr, config.networkPassphrase)
-        
+
                 transaction.sign(keypair)
-        
+
                 return transaction.toXDR()
             },
             async signAuthEntry(entryXdr: string) {

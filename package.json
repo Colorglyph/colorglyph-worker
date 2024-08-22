@@ -14,7 +14,8 @@
     "bignumber.js": "^9.1.2",
     "colorglyph-sdk": "file:./colorglyph-sdk",
     "itty-fetcher": "^0.9.4",
-    "itty-router": "^4.2.2"
+    "itty-router": "^4.2.2",
+    "passkey-kit": "^0.5.3"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240815.0",

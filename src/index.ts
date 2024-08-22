@@ -10,6 +10,7 @@ import { MintFactory } from './durable_object/mint_factory'
 import { image } from './fetch/image'
 import { glyphs } from './fetch/glyphs'
 import { flush } from './fetch/flush'
+import { contractId } from './fetch/contract_id'
 
 const { preflight, corsify } = createCors()
 
@@ -22,6 +23,7 @@ router
 	.get('/glyphs', glyphs)
 	.get('/image/:hash', image)
 	.delete('/:id', flush)
+	.get('/contract-id/:signer', contractId)
 	.all('*', () => error(404))
 
 const handler = {
