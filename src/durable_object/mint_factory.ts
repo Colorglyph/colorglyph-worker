@@ -10,9 +10,8 @@ import {
     StatusError,
     text,
 } from 'itty-router'
-import { getGlyphHash } from '../utils'
-import { paletteToBase64 } from '../utils/paletteToBase64'
 import BigNumber from 'bignumber.js'
+import { getGlyphHash } from '../utils'
 
 // NOTE A durable object can die at any moment due to a code push
 // this causes all pending state to be lost and all pending requests to die
@@ -22,6 +21,8 @@ import BigNumber from 'bignumber.js'
 // need to trace out what's going on here
 // maybe a rogue loop somewhere?
 // do KV, R2 and Queue requests count towards requests and/or sub requests?
+
+// TODO switch from a router based to the new function based DO
 
 export class MintFactory {
     id: DurableObjectId
@@ -112,22 +113,20 @@ export class MintFactory {
         // if it does see if it's scraped
         // if it is re-mint it
         // if it's not, fail this request
-        const glyph = await this.env.GLYPHS.get(hash, 'arrayBuffer')
+        const glyph = await this.env.DB.prepare('SELECT Hash, Length FROM Glyphs WHERE Hash = ?').bind(hash).first();
 
-        if (!glyph) { // TEMP until we handle the scrape scenario better as the status of a glyph should change between minted and scraped (also probably means that status should be stored outside the GLYPH KV itself)
-            // Pre-gen the image and store in R2
-            const image = await paletteToBase64(body.palette, body.width)
-            await this.env.IMAGES.put(hash, image)
-
-            // store in KV
-            // store the palette in the body
-            // store other info in the metadata
-            await this.env.GLYPHS.put(hash, new Uint8Array(body.palette), {
-                metadata: {
-                    id: this.id.toString(),
-                    width: body.width,
-                }
-            })
+        // TEMP until we handle the scrape scenario better as the status of a glyph should change between minted and scraped (also probably means that status should be stored outside the GLYPH KV itself)
+        if (!glyph || glyph?.Length === 0) {
+            await this.env.DB.prepare(`
+                INSERT INTO Glyphs ("Hash", Id)
+                VALUES (?1, ?2)
+                ON CONFLICT("Hash") DO NOTHING
+            `)
+                .bind(hash, this.id.toString())
+                .run()
+        } else {
+            await this.flushAll()
+            throw new StatusError(400, `Glyph ${hash} already exists`)
         }
 
         let map = new Map()
@@ -136,7 +135,7 @@ export class MintFactory {
             const index = Number(i)
             const color = body.palette[index]
             const amount: number = map.get(color) || 0
-            
+
             map.set(color, amount + 1)
 
             if (
@@ -192,7 +191,7 @@ export class MintFactory {
         } = await req.json() as any
 
         const cost = new BigNumber(await this.storage.get('cost') || 0).plus(feeCharged).toString()
-        
+
         await this.storage.put('cost', cost)
 
         switch (mintJob.type) {
@@ -335,15 +334,13 @@ export class MintFactory {
 
         console.log('FEE', fee)
 
-        await this.env.GLYPHS.put(body.hash, new Uint8Array(body.palette), {
-            metadata: {
-                id: this.id.toString(),
-                fee,
-                width: body.width,
-                length: body.palette.length,
-                status: 'minted', // system oriented. i.e. `minted|scraped`
-            }
-        })
+        await this.env.DB.prepare(`
+            UPDATE Glyphs
+            SET Fee = ?2
+            WHERE "Hash" = ?1 AND Fee <> ?2
+        `)
+            .bind(body.hash, fee)
+            .run();
 
         await this.flushAll()
     }

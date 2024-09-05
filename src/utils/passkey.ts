@@ -18,8 +18,7 @@ export function config(env: Env) {
         launchtubeUrl,
         launchtubeJwt: env.LAUNCHTUBE_JWT,
         mercuryUrl,
-        mercuryEmail: env.MERCURY_EMAIL,
-        mercuryPassword: env.MERCURY_PASSWORD,
+        mercuryJwt: env.MERCURY_JWT,
     });
 
     return {

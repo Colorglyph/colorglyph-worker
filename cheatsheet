@@ -1,0 +1,2 @@
+npx wrangler d1 execute colorglyph-worker-testnet --local --file=./schema.sql
+npx wrangler d1 execute colorglyph-worker-testnet --local --command="SELECT * FROM Offers"

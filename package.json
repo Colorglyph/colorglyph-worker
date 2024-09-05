@@ -15,15 +15,15 @@
     "colorglyph-sdk": "file:./colorglyph-sdk",
     "itty-fetcher": "^0.9.4",
     "itty-router": "^4.2.2",
-    "passkey-kit": "^0.5.3"
+    "passkey-kit": "^0.6.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240815.0",
+    "@cloudflare/workers-types": "^4.20240903.0",
     "@stellar/tsconfig": "^1.0.2",
-    "@types/node": "^22.4.1",
+    "@types/node": "^22.5.4",
     "esbuild": "^0.23.1",
     "esbuild-plugin-polyfill-node": "^0.3.0",
     "typescript": "^5.5.4",
-    "wrangler": "^3.72.0"
+    "wrangler": "^3.74.0"
   }
 }

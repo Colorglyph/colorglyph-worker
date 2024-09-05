@@ -14,7 +14,7 @@ export async function paletteToBase64(palette: number[], width: number) {
 
     const { data } = await encodePng({
         data: new Uint8Array(rgb_palette),
-        width: width,
+        width,
         height: Math.ceil(palette.length / width), 
     })
     

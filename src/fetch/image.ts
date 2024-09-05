@@ -1,7 +1,7 @@
 import { IRequestStrict, status } from "itty-router"
 
 export async function image(req: IRequestStrict, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const object = await env.IMAGES.get(req.params.hash)
+    const object = await env.IMAGES.get(`png:${req.params.hash}`)
     
     if (!object)
         return status(404)
@@ -14,9 +14,9 @@ export async function image(req: IRequestStrict, env: Env, ctx: ExecutionContext
 
     const res = new Response(object.body, {
         headers: {
-            'Cache-Control': 'public, max-age=2419000, immutable',
             'Content-Type': 'image/png',
             'Content-Length': object.size.toString(),
+            'Cache-Control': 'public, max-age=2419000, immutable',
         }
     })
 

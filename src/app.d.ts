@@ -10,8 +10,8 @@ interface Env {
     OCEAN_SK: string
     ENV: development | production
     LAUNCHTUBE_JWT: string
-    MERCURY_EMAIL: string
-    MERCURY_PASSWORD: string
+    MERCURY_JWT: string
+    DB: D1Database
 }
 
 interface MintRequest {

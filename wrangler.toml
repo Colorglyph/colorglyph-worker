@@ -3,9 +3,14 @@ main = "dist/index.js"
 compatibility_date = "2024-04-04"
 workers_dev = true
 
-kv_namespaces = [
-    { binding = "GLYPHS", id = "4130f4e274094e62a6609f5801d0bdba" }
-]
+[[kv_namespaces]]
+binding = "GLYPHS"
+id = "4130f4e274094e62a6609f5801d0bdba"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "colorglyph-worker-testnet"
+database_id = "8d5a1739-7bc0-405d-9b5b-2420699199aa"
 
 [[r2_buckets]]
 binding = 'ERRORS'
