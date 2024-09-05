@@ -25,6 +25,13 @@ import { paletteToBase64 } from '../utils/paletteToBase64'
 
 // TODO switch from a router based to the new function based DO
 
+interface JobBody {
+    hash: string,
+    palette: number[],
+    width: number,
+    secret: string,
+}
+
 export class MintFactory {
     id: DurableObjectId
     env: Env
@@ -57,7 +64,7 @@ export class MintFactory {
     }
 
     async getJob(req: Request) {
-        const body: any = await this.storage.get('body')
+        const body = await this.storage.get<JobBody>('body')
         const cost = await this.storage.get('cost')
         const status = await this.storage.get('status')
         const mineTotal = await this.storage.get('mine_total')
@@ -104,7 +111,7 @@ export class MintFactory {
         // this is the address that receives the colors and must sign for the minting
         // this is the address that will serve for the progressive minting
         
-        const body = await req.json() as MintRequest || {}
+        const body = await req.json() as MintRequest
         const sanitizedPaletteArray: [number, number][][] = []
 
         // Precalc the hash
@@ -162,7 +169,7 @@ export class MintFactory {
         }
 
         // queue up the mine jobs
-        const mineJobs: MintJob[] = sanitizedPaletteArray.map((slice) => ({
+        const mineJobs = sanitizedPaletteArray.map<MintJob>((slice) => ({
             id: this.id.toString(),
             type: 'mine',
             secret: body.secret,
@@ -172,7 +179,7 @@ export class MintFactory {
         await this.storage.put('status', 'mining')
         await this.storage.put('mine_total', mineJobs.length)
         await this.storage.put('mine_progress', 0)
-        await this.storage.put('body', {
+        await this.storage.put<JobBody>('body', {
             hash,
             palette: body.palette,
             width: body.width,
@@ -190,7 +197,7 @@ export class MintFactory {
         return text(this.id.toString())
     }
     async markProgress(req: Request) {
-        const body: any = await this.storage.get('body')
+        const body = await this.storage.get<JobBody>('body')
 
         // this should exit early if the DO has been flushed at any point (storage body is gone)
         if (!body)
@@ -200,10 +207,10 @@ export class MintFactory {
             mintJob: MintJob,
             feeCharged: string,
             returnValueXDR: string | undefined
-        } = await req.json() as any
+        } = await req.json()
 
         // TODO should we just be inserting the cost into D1 vs waiting till the end?
-        // TODO should we actually insert fee and id into KV vs D1? Keep the D1 for zephyr data
+        // TODO should we actually insert fee and id into KV vs D1? Keep the D1 for zephyr data only
 
         const cost = new BigNumber(await this.storage.get('cost') || 0).plus(feeCharged).toString()
 
@@ -219,8 +226,6 @@ export class MintFactory {
                 else
                     await this.mintProgress(body)
                 break;
-            default:
-                throw new StatusError(404, `Type ${mintJob.type} not found`)
         }
 
         return status(204)
@@ -240,10 +245,10 @@ export class MintFactory {
             return status(204)
     }
 
-    async mineProgress(body: any) {
+    async mineProgress(body: JobBody) {
         // Look up the next `mint_job` and queue it then update the `mint_job` with that job removed
-        const mineJobs: MintJob[] = await this.storage.get('mine_jobs') || []
-        const mineTotal: number = await this.storage.get('mine_total') || mineJobs.length
+        const mineJobs = await this.storage.get<MintJob[]>('mine_jobs') || []
+        const mineTotal = await this.storage.get<number>('mine_total') || mineJobs.length
         const mineJob = mineJobs.shift()
 
         await this.storage.put('mine_progress', mineTotal - mineJobs.length)
@@ -289,7 +294,7 @@ export class MintFactory {
             // once that mint palette queue is empty we can move on to the final mint
 
             // Queue up the mint jobs
-            const mintJobs: MintJob[] = sanitizedPaletteArray.map((slice) => ({
+            const mintJobs = sanitizedPaletteArray.map<MintJob>((slice) => ({
                 id: this.id.toString(),
                 type: 'mint',
                 palette: slice,
@@ -305,10 +310,10 @@ export class MintFactory {
             await this.storage.delete('mine_jobs')
         }
     }
-    async mintProgress(body: any) {
+    async mintProgress(body: JobBody) {
         // Look up the next `mint_job` and queue it then update the `mint_job` with that job removed
-        const mintJobs: MintJob[] = await this.storage.get('mint_jobs') || []
-        const mintTotal: number = await this.storage.get('mint_total') || mintJobs.length
+        const mintJobs = await this.storage.get<MintJob[]>('mint_jobs') || []
+        const mintTotal = await this.storage.get<number>('mint_total') || mintJobs.length
         const mintJob = mintJobs.shift()
 
         await this.storage.put('mint_progress', mintTotal - mintJobs.length)
@@ -333,7 +338,7 @@ export class MintFactory {
             await this.storage.delete('mint_jobs')
         }
     }
-    async mintComplete(body: any) {
+    async mintComplete(body: JobBody) {
         const fee = await this.storage.get('cost')
 
         console.log('FEE', fee)
