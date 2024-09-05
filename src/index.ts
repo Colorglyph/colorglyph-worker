@@ -11,6 +11,7 @@ import { image } from './fetch/image'
 import { glyphs } from './fetch/glyphs'
 import { flush } from './fetch/flush'
 import { contractId } from './fetch/contract_id'
+import { zephyr } from './fetch/zephyr'
 
 const { preflight, corsify } = createCors()
 
@@ -24,6 +25,7 @@ router
 	.get('/image/:hash', image)
 	.delete('/:id', flush)
 	.get('/contract-id/:signer', contractId)
+	.post('/zephyr', zephyr)
 	.all('*', () => error(404))
 
 const handler = {

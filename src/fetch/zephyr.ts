@@ -9,8 +9,6 @@ export async function zephyr(req: IRequestStrict, env: Env, ctx: ExecutionContex
     const { seq_num, data: events } = await req.json() as Body;
     const statements: D1PreparedStatement[] = [];
 
-    console.log(JSON.stringify(events, null, 2));
-
     for (const event of events) {
         if ("Color" in event) {
             await process_color(env, event.Color, statements);
