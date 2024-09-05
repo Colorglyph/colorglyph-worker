@@ -114,9 +114,8 @@ export class MintFactory {
         // if it does see if it's scraped
         // if it is re-mint it
         // if it's not, fail this request
-        const glyph = await this.env.DB.prepare('SELECT Hash, Length FROM Glyphs WHERE Hash = ?').bind(hash).first();
+        const glyph = await this.env.DB.prepare('SELECT Length FROM Glyphs WHERE Hash = ?').bind(hash).first();
 
-        // TEMP until we handle the scrape scenario better as the status of a glyph should change between minted and scraped (also probably means that status should be stored outside the GLYPH KV itself)
         if (glyph) {
             if (glyph.Length) {
                 await this.flushAll()
@@ -125,6 +124,8 @@ export class MintFactory {
         } else {
             const image = await paletteToBase64(body.palette, body.width)
 
+            // TODO should we pack the D1 with everything we have? width, owner, minter, etc?
+            
             await this.env.IMAGES.put(`png:${hash}`, image)
             await this.env.DB.prepare(`
                 INSERT INTO Glyphs ("Hash", Id)
@@ -325,12 +326,10 @@ export class MintFactory {
     async mintComplete(body: any) {
         const fee = await this.storage.get('cost')
 
-        console.log('FEE', fee)
-
         await this.env.DB.prepare(`
             UPDATE Glyphs
             SET Fee = ?2
-            WHERE "Hash" = ?1 AND Fee <> ?2
+            WHERE "Hash" = ?1 AND (Fee IS NULL OR Fee <> ?2)
         `)
             .bind(body.hash, fee)
             .run();

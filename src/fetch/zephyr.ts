@@ -6,18 +6,18 @@ import { scValToNative, xdr } from "colorglyph-sdk";
 // TODO consider using a queue to batch the statements
 
 export async function zephyr(req: IRequestStrict, env: Env, ctx: ExecutionContext) {
-    const { seq_num, data: events } = await req.json() as Body;
+    const { seq_num, fee_charged, data: events } = await req.json() as Body;
     const statements: D1PreparedStatement[] = [];
 
     for (const event of events) {
         if ("Color" in event) {
             await process_color(env, event.Color, statements);
         } else if ("Glyph" in event) {
-            await process_glyph(env, event.Glyph, seq_num, statements);
+            await process_glyph(env, event.Glyph, statements, seq_num, fee_charged);
         } else if ("GlyphOwner" in event) {
-            await process_glyph(env, event.GlyphOwner, seq_num, statements);
+            await process_glyph(env, event.GlyphOwner, statements, seq_num, fee_charged);
         } else if ("GlyphMinter" in event) {
-            await process_glyph(env, event.GlyphMinter, seq_num, statements);
+            await process_glyph(env, event.GlyphMinter, statements, seq_num, fee_charged);
         } else if ("Offer" in event) {
             await process_offer(env, event.Offer, statements);
         } else if ("OfferSellerSelling" in event) {
@@ -43,7 +43,7 @@ async function process_color(env: Env, body: Color, statements: D1PreparedStatem
                 VALUES (?1, ?2, ?3, ?4)
                 ON CONFLICT("Owner", Miner, Color)
                 DO UPDATE SET 
-                    Amount = CASE WHEN Amount <> excluded.Amount THEN excluded.Amount ELSE Amount END
+                    Amount = CASE WHEN Amount IS NULL OR Amount <> excluded.Amount THEN excluded.Amount ELSE Amount END
             `)
                 .bind(
                     body.owner,
@@ -60,19 +60,28 @@ async function process_color(env: Env, body: Color, statements: D1PreparedStatem
     }
 }
 
-async function process_glyph(env: Env, body: Glyph | GlyphOwner | GlyphMinter, seq_num: number, statements: D1PreparedStatement[]) {
+async function process_glyph(env: Env, body: Glyph | GlyphOwner | GlyphMinter, statements: D1PreparedStatement[], seq_num: number, fee_charged: number) {
     switch (body.change) {
         case Change.Create:
         case Change.Update:
             if (isGlyph(body)) {
+                const feeStatement = env.DB.prepare(`
+                    UPDATE Glyphs
+                    SET Fee = COALESCE(Fee, 0) + ?2
+                    WHERE "Hash" = ?1 AND (Width IS NULL OR Width = 0)
+                `)
+                    .bind(body.hash, fee_charged);
+
+                statements.push(feeStatement);
+
                 const scval = xdr.ScVal.fromXDR(body.colors, 'base64');
                 const statement = env.DB.prepare(`
                     INSERT INTO Glyphs ("Hash", Width, "Length")
                     VALUES (?1, ?2, ?3)
                     ON CONFLICT("Hash")
                     DO UPDATE SET
-                        Width = CASE WHEN Width <> excluded.Width THEN excluded.Width ELSE Width END,
-                        "Length" = CASE WHEN "Length" <> excluded."Length" THEN excluded."Length" ELSE "Length" END
+                        Width = CASE WHEN Width IS NULL OR Width <> excluded.Width THEN excluded.Width ELSE Width END,
+                        "Length" = CASE WHEN "Length" IS NULL OR "Length" <> excluded."Length" THEN excluded."Length" ELSE "Length" END
                 `)
                     .bind(
                         body.hash,
@@ -91,28 +100,28 @@ async function process_glyph(env: Env, body: Glyph | GlyphOwner | GlyphMinter, s
                 }
 
                 await put_if_newer(env, `raw:${body.hash}`, seq_num, scval.toXDR());
-            } 
-            
+            }
+
             else if (isGlyphOwner(body)) {
                 const statement = env.DB.prepare(`
                     INSERT INTO Glyphs ("Hash", "Owner")
                     VALUES (?1, ?2)
                     ON CONFLICT("Hash")
                     DO UPDATE SET
-                        "Owner" = CASE WHEN "Owner" <> excluded."Owner" THEN excluded."Owner" ELSE "Owner" END
+                        "Owner" = CASE WHEN "Owner" IS NULL OR "Owner" <> excluded."Owner" THEN excluded."Owner" ELSE "Owner" END
                 `)
                     .bind(body.hash, body.owner)
 
                 statements.push(statement);
-            } 
-            
+            }
+
             else if (isGlyphMinter(body)) {
                 const statement = env.DB.prepare(`
                     INSERT INTO Glyphs ("Hash", Minter)
                     VALUES (?1, ?2)
                     ON CONFLICT("Hash")
                     DO UPDATE SET
-                        Minter = CASE WHEN Minter <> excluded.Minter THEN excluded.Minter ELSE Minter END
+                        Minter = CASE WHEN Minter IS NULL OR Minter <> excluded.Minter THEN excluded.Minter ELSE Minter END
                 `)
                     .bind(body.hash, body.minter)
 
@@ -131,7 +140,7 @@ async function process_offer(env: Env, body: Offer | OfferSellerSelling | OfferS
         case Change.Update:
             if (isOffer(body)) {
                 const amount = i128_to_bigint_string(body.amount);
-                // NOTE currently the way we track offers we do not support duplicates even though I think the protocol might allow it ?? (need to check)
+                // TODO currently the way we track offers we do not support duplicates even though I think the protocol might allow it ?? (need to check)
 
                 const statement = env.DB.prepare(`
                     INSERT INTO Offers (Seller, Selling, Buying, Amount)
@@ -207,10 +216,6 @@ async function put_if_newer(env: Env, key: string, seq_num: number, data: ArrayB
                 'Last-Modified-Sequence-Number': seq_num.toString()
             }
         })
-
-        console.log(`Updated`, key, seq_num);
-    } else {
-        console.log('Not Updated', key, seq_num, existing_seq_num);
     }
 }
 
@@ -279,6 +284,7 @@ type BodyMapping = {
 
 type Body = {
     seq_num: number,
+    fee_charged: number,
     data: DataObject[],
 }
 
