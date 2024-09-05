@@ -1,6 +1,7 @@
 import { StatusError } from "itty-router"
 import { writeErrorToR2 } from "../utils/writeErrorToR2"
 import { Config, sleep } from "./common"
+import { MintFactory } from "../durable_object/mint_factory"
 
 export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionContext) {
     const { rpc } = new Config(env)
@@ -15,21 +16,12 @@ export async function getTx(message: Message<MintJob>, env: Env, ctx: ExecutionC
 
                 // update job progress
                 const id = env.MINT_FACTORY.idFromString(body.id)
+                const stub = env.MINT_FACTORY.get(id) as DurableObjectStub<MintFactory>
 
-                await env.MINT_FACTORY
-                    .get(id)
-                    .fetch(`http://fake-host`, {
-                        method: 'PATCH',
-                        body: JSON.stringify({
-                            mintJob: body,
-                            feeCharged: res.resultXdr.feeCharged().toString(),
-                            returnValueXDR: res.returnValue?.toXDR('base64')
-                        })
-                    })
-                    .then((res) => {
-                        if (res.ok) return
-                        else throw new StatusError(res.status, res.statusText)
-                    })
+                await stub.markProgress({
+                    mintJob: body,
+                    feeCharged: res.resultXdr.feeCharged().toString(),
+                })
 
                 // if the batch fails further down we don't want to retry this message
                 message.ack()

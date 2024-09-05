@@ -1,15 +1,16 @@
-import { IRequestStrict } from "itty-router"
+import { IRequestStrict, json } from "itty-router"
+import { MintFactory } from "../durable_object/mint_factory"
 
 export async function mintQueue(req: IRequestStrict, env: Env, ctx: ExecutionContext) {
-    let id: DurableObjectId
-
     const hash = req.params.hash
 
     if (hash) {
-        id = env.MINT_FACTORY.idFromString(hash)
+        const id = env.MINT_FACTORY.idFromString(hash)
+        const stub = env.MINT_FACTORY.get(id) as DurableObjectStub<MintFactory>
+        return json(await stub.getJob())
     } else {
-        id = env.MINT_FACTORY.newUniqueId()
+        const id = env.MINT_FACTORY.newUniqueId()
+        const stub = env.MINT_FACTORY.get(id) as DurableObjectStub<MintFactory>
+        return json(await stub.mintJob(await req.json()))
     }
-
-    return env.MINT_FACTORY.get(id).fetch('http://fake-host', req as any)
 }

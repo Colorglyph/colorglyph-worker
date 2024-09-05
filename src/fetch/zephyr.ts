@@ -3,7 +3,7 @@ import { paletteToBase64 } from "../utils/paletteToBase64";
 import { scValToNative, xdr } from "colorglyph-sdk";
 
 // TODO block access with JWT
-// TODO consider using a queue to batch the statements
+// TODO consider using a queue to speed up the requests
 
 export async function zephyr(req: IRequestStrict, env: Env, ctx: ExecutionContext) {
     const { seq_num, fee_charged, data: events } = await req.json() as Body;
@@ -24,8 +24,6 @@ export async function zephyr(req: IRequestStrict, env: Env, ctx: ExecutionContex
             await process_offer(env, event.OfferSellerSelling, statements);
         } else if ("OfferSellingBuyingAmount" in event) {
             await process_offer(env, event.OfferSellingBuyingAmount, statements);
-        } else {
-            throw new Error("Unknown event");
         }
     }
 

@@ -1,18 +1,11 @@
 const maxMineSize = 23
 const maxMintSize = 24 // NOTE the first iteration must be 23 if the glyph hash is brand new
 
-import {
-    error,
-    json,
-    Router,
-    RouterType,
-    status,
-    StatusError,
-    text,
-} from 'itty-router'
+import { StatusError } from 'itty-router'
 import BigNumber from 'bignumber.js'
 import { getGlyphHash } from '../utils'
 import { paletteToBase64 } from '../utils/paletteToBase64'
+import { DurableObject } from 'cloudflare:workers'
 
 // NOTE A durable object can die at any moment due to a code push
 // this causes all pending state to be lost and all pending requests to die
@@ -23,47 +16,22 @@ import { paletteToBase64 } from '../utils/paletteToBase64'
 // maybe a rogue loop somewhere?
 // do KV, R2 and Queue requests count towards requests and/or sub requests?
 
-// TODO switch from a router based to the new function based DO
-
-interface JobBody {
-    hash: string,
-    palette: number[],
-    width: number,
-    secret: string,
-}
-
-export class MintFactory {
+export class MintFactory extends DurableObject<Env> {
     id: DurableObjectId
     env: Env
-    state: DurableObjectState
+    ctx: DurableObjectState
     storage: DurableObjectStorage
-    router: RouterType
 
-    constructor(state: DurableObjectState, env: Env) {
-        this.id = state.id
+    constructor(ctx: DurableObjectState, env: Env) {
+        super(ctx, env)
+
+        this.id = ctx.id
         this.env = env
-        this.state = state
-        this.storage = state.storage
-        this.router = Router()
-
-        this.router
-            .get('/', this.getJob.bind(this))
-            .post('/', this.mintJob.bind(this))
-            .patch('/', this.markProgress.bind(this))
-            .delete('/', this.flushAll.bind(this))
-            .all('*', () => error(404))
-    }
-    fetch(req: Request, ...extra: any[]) {
-        return this.router
-            .handle(req, ...extra)
-            .then(json)
-            .catch((err: any) => {
-                console.error(err)
-                return error(err)
-            })
+        this.ctx = ctx
+        this.storage = ctx.storage
     }
 
-    async getJob(req: Request) {
+    async getJob() {
         const body = await this.storage.get<JobBody>('body')
         const cost = await this.storage.get('cost')
         const status = await this.storage.get('status')
@@ -72,7 +40,7 @@ export class MintFactory {
         const mintTotal = await this.storage.get('mint_total')
         const mintProgress = await this.storage.get('mint_progress')
 
-        return json({
+        return {
             id: this.id.toString(),
             hash: body?.hash,
             cost,
@@ -81,9 +49,9 @@ export class MintFactory {
             mineProgress,
             mintTotal,
             mintProgress,
-        })
+        }
     }
-    async mintJob(req: Request) {
+    async mintJob(body: MintRequest) {
         // TODO this method of minting requires both the mining and minting be done by the same secret
         // you cannot use colors mined by other miners
         // you can't even really use your own mined colors as this will freshly mine all colors before doing the mint
@@ -111,7 +79,6 @@ export class MintFactory {
         // this is the address that receives the colors and must sign for the minting
         // this is the address that will serve for the progressive minting
         
-        const body = await req.json() as MintRequest
         const sanitizedPaletteArray: [number, number][][] = []
 
         // Precalc the hash
@@ -194,20 +161,32 @@ export class MintFactory {
         await this.storage.put('mine_jobs', mineJobs)
         await this.env.TX_SEND.send(mineJob)
 
-        return text(this.id.toString())
+        return this.id.toString()
     }
-    async markProgress(req: Request) {
+    async flushAll() {
+        await this.storage.sync()
+        await this.storage.deleteAlarm()
+        await this.storage.deleteAll()
+
+        this.ctx.blockConcurrencyWhile(async () => {
+            await this.storage.sync()
+            await this.storage.deleteAlarm()
+            await this.storage.deleteAll()
+        })
+    }
+
+    async markProgress({ 
+        mintJob, 
+        feeCharged 
+    }: {
+        mintJob: MintJob,
+        feeCharged: string,
+    }) {
         const body = await this.storage.get<JobBody>('body')
 
         // this should exit early if the DO has been flushed at any point (storage body is gone)
         if (!body)
             throw new StatusError(404, 'Body not found')
-
-        const { mintJob, feeCharged }: {
-            mintJob: MintJob,
-            feeCharged: string,
-            returnValueXDR: string | undefined
-        } = await req.json()
 
         // TODO should we just be inserting the cost into D1 vs waiting till the end?
         // TODO should we actually insert fee and id into KV vs D1? Keep the D1 for zephyr data only
@@ -227,24 +206,7 @@ export class MintFactory {
                     await this.mintProgress(body)
                 break;
         }
-
-        return status(204)
     }
-    async flushAll(req?: Request) {
-        await this.storage.sync()
-        await this.storage.deleteAlarm()
-        await this.storage.deleteAll()
-
-        this.state.blockConcurrencyWhile(async () => {
-            await this.storage.sync()
-            await this.storage.deleteAlarm()
-            await this.storage.deleteAll()
-        })
-
-        if (req)
-            return status(204)
-    }
-
     async mineProgress(body: JobBody) {
         // Look up the next `mint_job` and queue it then update the `mint_job` with that job removed
         const mineJobs = await this.storage.get<MintJob[]>('mine_jobs') || []

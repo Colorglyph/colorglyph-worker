@@ -14,6 +14,13 @@ interface Env {
     DB: D1Database
 }
 
+interface JobBody {
+    hash: string,
+    palette: number[],
+    width: number,
+    secret: string,
+}
+
 interface MintRequest {
     secret: string
     palette: number[]
