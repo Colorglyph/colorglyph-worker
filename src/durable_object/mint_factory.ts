@@ -84,19 +84,31 @@ export class MintFactory extends DurableObject<Env> {
             if it is re-mint it
             if it's not, fail this request
         */
-        const glyph = await this.env.DB.prepare('SELECT Length FROM Glyphs WHERE Hash = ?').bind(hash).first();
+
+        // Lookup if this hash already exists
+        const glyph = await this.env.DB.prepare('SELECT Length, Id FROM Glyphs WHERE "Hash" = ?').bind(hash).first();
 
         if (glyph) {
-            if (glyph.Length) {
+            if (glyph.Length !== 0) {
                 await this.flushAll()
-                throw new StatusError(400, `Glyph ${hash} already exists`)
+                return glyph.Id
+            } else {
+                // Update the Id if the glyph exists but has no length
+                await this.env.DB.prepare(`
+                    UPDATE Glyphs
+                    SET Id = ?2
+                    WHERE "Hash" = ?1
+                `)
+                    .bind(hash, this.id.toString())
+                    .run()
             }
         } else {
-            const image = await paletteToBase64(body.palette, body.width)
+            // Insert new glyph if it doesn't exist
 
-            // TODO should we pack the D1 with everything we have? width, owner, minter, etc?
-            // keep in mind folks could mint glyphs outside our system so our interface needs to keep that in mind. 
-            // only zephyr data is gospel (aka Length is a strong marker)
+            /* TODO should we pack the D1 with everything we have? width, owner, minter, etc?
+                keep in mind folks could mint glyphs outside our system so our interface needs to keep that in mind. 
+                only zephyr data is gospel (aka Length is a strong marker)
+            */
             
             // "Owner" TEXT,
             // Minter TEXT,
@@ -104,11 +116,12 @@ export class MintFactory extends DurableObject<Env> {
             // "Length" INTEGER,
             // Fee INTEGER,
 
+            const image = await paletteToBase64(body.palette, body.width)
+
             await this.env.IMAGES.put(`png:${hash}`, image)
             await this.env.DB.prepare(`
                 INSERT INTO Glyphs ("Hash", Id)
                 VALUES (?1, ?2)
-                ON CONFLICT("Hash") DO NOTHING
             `)
                 .bind(hash, this.id.toString())
                 .run()
