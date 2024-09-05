@@ -12,6 +12,7 @@ import {
 } from 'itty-router'
 import BigNumber from 'bignumber.js'
 import { getGlyphHash } from '../utils'
+import { paletteToBase64 } from '../utils/paletteToBase64'
 
 // NOTE A durable object can die at any moment due to a code push
 // this causes all pending state to be lost and all pending requests to die
@@ -116,7 +117,15 @@ export class MintFactory {
         const glyph = await this.env.DB.prepare('SELECT Hash, Length FROM Glyphs WHERE Hash = ?').bind(hash).first();
 
         // TEMP until we handle the scrape scenario better as the status of a glyph should change between minted and scraped (also probably means that status should be stored outside the GLYPH KV itself)
-        if (!glyph || glyph?.Length === 0) {
+        if (glyph) {
+            if (glyph.Length) {
+                await this.flushAll()
+                throw new StatusError(400, `Glyph ${hash} already exists`)
+            }
+        } else {
+            const image = await paletteToBase64(body.palette, body.width)
+
+            await this.env.IMAGES.put(`png:${hash}`, image)
             await this.env.DB.prepare(`
                 INSERT INTO Glyphs ("Hash", Id)
                 VALUES (?1, ?2)
@@ -124,9 +133,6 @@ export class MintFactory {
             `)
                 .bind(hash, this.id.toString())
                 .run()
-        } else {
-            await this.flushAll()
-            throw new StatusError(400, `Glyph ${hash} already exists`)
         }
 
         let map = new Map()
@@ -164,8 +170,6 @@ export class MintFactory {
             width: body.width,
             secret: body.secret,
         })
-
-        // TODO should also put some stuff in a D1 for easy sorting and searching?
 
         // TODO we should probably save every job to the KV for review and cleanup in a cron job later
 
@@ -226,17 +230,6 @@ export class MintFactory {
     }
 
     async mineProgress(body: any) {
-        // const mineTotal: number = await this.storage.get('mine_total') || 0
-
-        // if (!mineTotal)
-        //     throw new StatusError(400, 'Nothing to mine')
-
-        // let mineProgress: number = await this.storage.get('mine_progress') || 0
-
-        // mineProgress++
-
-        // await this.storage.put('mine_progress', mineProgress)
-
         // Look up the next `mint_job` and queue it then update the `mint_job` with that job removed
         const mineJobs: MintJob[] = await this.storage.get('mine_jobs') || []
         const mineTotal: number = await this.storage.get('mine_total') || mineJobs.length

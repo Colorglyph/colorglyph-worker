@@ -7,19 +7,19 @@ DROP TABLE IF EXISTS Offers;
 CREATE TABLE IF NOT EXISTS Colors (
     "Owner" TEXT NOT NULL,
     Miner TEXT NOT NULL,
-    Color INTEGER NOT NULL DEFAULT 16777215,
-    Amount INTEGER NOT NULL DEFAULT 0,
+    Color INTEGER NOT NULL,
+    Amount INTEGER,
     UNIQUE("Owner", Miner, Color)
 );
 
 CREATE TABLE IF NOT EXISTS Glyphs (
     "Hash" TEXT PRIMARY KEY,
-    "Owner" TEXT NOT NULL DEFAULT '',
-    Minter TEXT NOT NULL DEFAULT '',
-    Width INTEGER NOT NULL DEFAULT 0,
-    "Length" INTEGER NOT NULL DEFAULT 0,
-    Fee INTEGER NOT NULL DEFAULT 0,
-    Id TEXT NOT NULL DEFAULT ''
+    "Owner" TEXT,
+    Minter TEXT,
+    Width INTEGER,
+    "Length" INTEGER,
+    Fee INTEGER,
+    Id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS Offers (

@@ -69,12 +69,12 @@ async function process_glyph(env: Env, body: Glyph | GlyphOwner | GlyphMinter, s
             if (isGlyph(body)) {
                 const scval = xdr.ScVal.fromXDR(body.colors, 'base64');
                 const statement = env.DB.prepare(`
-                    INSERT INTO Glyphs ("Hash", Width, Length)
+                    INSERT INTO Glyphs ("Hash", Width, "Length")
                     VALUES (?1, ?2, ?3)
                     ON CONFLICT("Hash")
                     DO UPDATE SET
                         Width = CASE WHEN Width <> excluded.Width THEN excluded.Width ELSE Width END,
-                        Length = CASE WHEN Length <> excluded.Length THEN excluded.Length ELSE Length END
+                        "Length" = CASE WHEN "Length" <> excluded."Length" THEN excluded."Length" ELSE "Length" END
                 `)
                     .bind(
                         body.hash,
@@ -101,7 +101,7 @@ async function process_glyph(env: Env, body: Glyph | GlyphOwner | GlyphMinter, s
                     VALUES (?1, ?2)
                     ON CONFLICT("Hash")
                     DO UPDATE SET
-                        "Owner" = excluded."Owner"
+                        "Owner" = CASE WHEN "Owner" <> excluded."Owner" THEN excluded."Owner" ELSE "Owner" END
                 `)
                     .bind(body.hash, body.owner)
 
@@ -114,7 +114,7 @@ async function process_glyph(env: Env, body: Glyph | GlyphOwner | GlyphMinter, s
                     VALUES (?1, ?2)
                     ON CONFLICT("Hash")
                     DO UPDATE SET
-                        Minter = excluded.Minter
+                        Minter = CASE WHEN Minter <> excluded.Minter THEN excluded.Minter ELSE Minter END
                 `)
                     .bind(body.hash, body.minter)
 
@@ -152,15 +152,24 @@ async function process_offer(env: Env, body: Offer | OfferSellerSelling | OfferS
             }
             break;
         case Change.Remove:
-            if (isOfferSellerSelling(body)) {
+            if (isOffer(body)) {
+                const amount = i128_to_bigint_string(body.amount);
+
+                const statement = env.DB.prepare(`
+                    DELETE FROM Offers WHERE Seller = ?1 AND Selling = ?2 AND Buying = ?3 AND Amount = ?4
+                `)
+                    .bind(body.seller, body.selling, body.buying, amount)
+
+                statements.push(statement);
+            }
+            else if (isOfferSellerSelling(body)) {
                 const statement = env.DB.prepare(`
                     DELETE FROM Offers WHERE Seller = ?1 AND Selling = ?2
                 `)
                     .bind(body.seller, body.selling)
 
                 statements.push(statement);
-            } 
-            
+            }
             else if (isOfferSellingBuyingAmount(body)) {
                 const amount = i128_to_bigint_string(body.amount);
 
