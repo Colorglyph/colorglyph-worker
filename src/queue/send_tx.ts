@@ -10,10 +10,6 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
     try {
         const body = message.body
-
-        // NOTE everywhere we're using stub.fetch we don't have the nice error handling that fetcher gives us so we need to roll our own error handling. 
-        // Keep in mind though there may be instances where failure shouldn't kill the whole task. Think returning a channel that's not currently busy for whatever reason
-
         const keypair = Keypair.fromSecret(body.secret)
         const pubkey = keypair.publicKey()
         const source = await rpc.getAccount(pubkey).then(res => new Account(res.accountId(), res.sequenceNumber()))
@@ -120,38 +116,6 @@ export async function sendTx(message: Message<MintJob>, env: Env, ctx: Execution
 
         if (!SorobanRpc.Api.isSimulationSuccess(authSim)) // Error, Raw, Restore
             throw new StatusError(400, `Transaction auth simulation failed: "${authSim.error}"`)
-
-        // TEMP...hopefully
-        // if (body.type === 'mine') {
-        //     simTx.minResourceFee = (2 ** 32 - 1 - Number(preTx.built!.fee)).toString() // TEMP
-
-        //     simTx.transactionData.setResources(
-        //         preTx.simulationData.transactionData.resources().instructions(),
-        //         preTx.simulationData.transactionData.resources().readBytes() + 52, // TODO <-- be smarter about this. We only need it if we simulated a key that didn't exist in a prior submission but will exist in this submission (there's a key overlap where not every color is unique)
-        //         preTx.simulationData.transactionData.resources().writeBytes() + 52, // TODO <-- see above (once this is live https://github.com/stellar/rs-soroban-env/pull/1363 we should be golden)
-        //     )
-        // }
-        ////
-
-        // if (
-        //     body.type === 'mint'
-        //     || body.width
-        // )   {
-        //     const txData = simTx.transactionData.build();
-
-        //     console.log({
-        //         resourceFee: txData.resourceFee().toString(),
-        //         cost: {
-        //             cpuInsns: simTx.cost.cpuInsns,
-        //             memBytes: simTx.cost.memBytes,
-        //         },
-        //         resources: {
-        //             instructions: txData.resources().instructions(),
-        //             readBytes: txData.resources().readBytes(),
-        //             writeBytes: txData.resources().writeBytes(),
-        //         },
-        //     });
-        // }
 
         // const tempTx = new Transaction(preTx.built!.toXDR(), networkPassphrase)
         const sendTx = SorobanRpc.assembleTransaction(authTx, authSim).build()

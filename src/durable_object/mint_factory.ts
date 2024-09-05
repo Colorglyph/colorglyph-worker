@@ -1,5 +1,5 @@
 const maxMineSize = 23
-const maxMintSize = 24 // NOTE the first iteration must be 23 if the glyph hash is brand new
+const maxMintSize = 24
 
 import { StatusError } from 'itty-router'
 import BigNumber from 'bignumber.js'
@@ -7,14 +7,10 @@ import { getGlyphHash } from '../utils'
 import { paletteToBase64 } from '../utils/paletteToBase64'
 import { DurableObject } from 'cloudflare:workers'
 
-// NOTE A durable object can die at any moment due to a code push
-// this causes all pending state to be lost and all pending requests to die
-// for alarms this means the alarm will exit somewhere in the middle and then magically retry itself with no ability to catch that exception
-
-// TODO seeing a MASSIVE number or requests and sub requests
-// need to trace out what's going on here
-// maybe a rogue loop somewhere?
-// do KV, R2 and Queue requests count towards requests and/or sub requests?
+/* NOTE A durable object can die at any moment due to a code push
+    this causes all pending state to be lost and all pending requests to die
+    for alarms this means the alarm will exit somewhere in the middle and then magically retry itself with no ability to catch that exception
+*/
 
 export class MintFactory extends DurableObject<Env> {
     id: DurableObjectId
@@ -52,42 +48,42 @@ export class MintFactory extends DurableObject<Env> {
         }
     }
     async mintJob(body: MintRequest) {
-        // TODO this method of minting requires both the mining and minting be done by the same secret
-        // you cannot use colors mined by other miners
-        // you can't even really use your own mined colors as this will freshly mine all colors before doing the mint
-        // fine for now just be aware
+        /* NOTE this method of minting requires both the mining and minting be done by the same secret
+            you cannot use colors mined by other miners
+            you can't even really use your own mined colors as this will freshly mine all colors before doing the mint
+            fine for now just be aware
+        */
 
-        // TODO if requested colors already exist in the minter's inventory use those
-        // slightly instable if there are multiple mints queued as you could promise a color already committed
-        // might should only allow one mint at a time per destination address
+        /* NOTE I don't love that we have to send along the secret here but given we have to authorize stuff far into the future this is probably the only way
+            We may be able to send along a ton of signed SorobanAuthEntries but that leaves us slightly fragile to changes in case of tx submission failure
+            But maybe since we have separation from stellar stuff and soroban stuff we can just mod the stellar tx and keep popping the same SorobanAuthEntries in
+            If we do end up passing along secrets though we don't really need to use channel accounts, we can just continue to use the same pubkey
+            Or actually maybe channel accounts are still good as it allows us to spread the mines for a single account across many channel accounts making mining faster 🧠
+            It's possible we could combine soroban auth, channel accounts and fee bumps in order to have Colorglyph pay fees, users pay sequence numbers and the final mint to arrive in the user's wallet
+        */
 
-        // TODO I don't love that we have to send along the secret here but given we have to authorize stuff far into the future this is probably the only way
-        // We may be able to send along a ton of signed SorobanAuthEntries but that leaves us slightly fragile to changes in case of tx submission failure
-        // But maybe since we have separation from stellar stuff and soroban stuff we can just mod the stellar tx and keep popping the same SorobanAuthEntries in
-        // If we do end up passing along secrets though we don't really need to use channel accounts, we can just continue to use the same pubkey
-        // Or actually maybe channel accounts are still good as it allows us to spread the mines for a single account across many channel accounts making mining faster 🧠
-        // It's possible we could combine soroban auth, channel accounts and fee bumps in order to have Colorglyph pay fees, users pay sequence numbers and the final mint to arrive in the user's wallet
+        /* TODO if requested colors already exist in the minter's inventory use those
+            slightly instable if there are multiple mints queued as you could promise a color already committed
+            might should only allow one mint at a time per destination address
+        */
 
-        // TODO switch to using a two account mint
-        // one account for the progressive mint account and the other for the final destination address
-        // the one is a secret key and the other is a public key
-        // this may require the ability to set the miner address separate from the signing account paying the mining fee
-        // there's an address that pays the mining fee, there's an address that is the miner who will receive royalties, and there's the address that receives the final minted glyph
-        // ---
-        // this is the destination for the glyph and the miner for the colors
-        // this is the address that pays the mining fee
-        // this is the address that receives the colors and must sign for the minting
-        // this is the address that will serve for the progressive minting
+        /* TODO switch to using a two account mint
+            one account for the progressive mint account and the other for the final destination address
+            the one is a secret key and the other is a public key
+            this may require the ability to set the miner address separate from the signing account paying the mining fee
+            there's an address that pays the mining fee, there's an address that is the miner who will receive royalties, and there's the address that receives the final minted glyph
+        */
         
         const sanitizedPaletteArray: [number, number][][] = []
 
         // Precalc the hash
         const hash = await getGlyphHash(body.palette, body.width)
 
-        // TODO lookup if this hash already exists
-        // if it does see if it's scraped
-        // if it is re-mint it
-        // if it's not, fail this request
+        /* Lookup if this hash already exists
+            if it does see if it's scraped
+            if it is re-mint it
+            if it's not, fail this request
+        */
         const glyph = await this.env.DB.prepare('SELECT Length FROM Glyphs WHERE Hash = ?').bind(hash).first();
 
         if (glyph) {
@@ -99,7 +95,8 @@ export class MintFactory extends DurableObject<Env> {
             const image = await paletteToBase64(body.palette, body.width)
 
             // TODO should we pack the D1 with everything we have? width, owner, minter, etc?
-            // keep in mind folks could mint glyphs outside our system so our interface needs to keep that in mind. Only zephyr data is gospel (aka Length is a strong marker)
+            // keep in mind folks could mint glyphs outside our system so our interface needs to keep that in mind. 
+            // only zephyr data is gospel (aka Length is a strong marker)
             
             // "Owner" TEXT,
             // Minter TEXT,
@@ -188,8 +185,10 @@ export class MintFactory extends DurableObject<Env> {
         if (!body)
             throw new StatusError(404, 'Body not found')
 
-        // TODO should we just be inserting the cost into D1 vs waiting till the end?
-        // TODO should we actually insert fee and id into KV vs D1? Keep the D1 for zephyr data only
+        /* TODO 
+            should we just be inserting the cost into D1 vs waiting till the end?
+            should we actually insert fee and id into KV vs D1? Keep the D1 for zephyr data only
+        */
 
         const cost = new BigNumber(await this.storage.get('cost') || 0).plus(feeCharged).toString()
 
@@ -220,7 +219,7 @@ export class MintFactory extends DurableObject<Env> {
             await this.storage.put('mine_jobs', mineJobs)
         }
 
-        // mining is done, move on to minting
+        // Mining is done, move on to minting
         else {
             const sanitizedPaletteArray: [number, number[]][][] = []
 
@@ -238,7 +237,7 @@ export class MintFactory extends DurableObject<Env> {
 
                 if (
                     index === body.palette.length - 1
-                    || map.size >= (count === 1 ? maxMintSize : maxMintSize - 1)
+                    || map.size >= (count === 1 ? maxMintSize : maxMintSize - 1) // The first iteration must be 23 if the glyph hash is brand new
                 ) {
                     sanitizedPaletteArray.push([...map.entries()])
                     count = 0
@@ -250,10 +249,11 @@ export class MintFactory extends DurableObject<Env> {
             await this.storage.put('mint_total', sanitizedPaletteArray.length)
             await this.storage.put('mint_progress', 0)
 
-            // NOTE These minting requests actually need to execute serially vs in parallel (as the color mining can)
-            // this is due to the glyph growing in size so preemtive parallel tx submission will have bad simulated resource assumptions
-            // this probably means we store progress here in the DO and just slowly work through a task list inside the alarm and every time we get a new mint success we move on to the next mint palette
-            // once that mint palette queue is empty we can move on to the final mint
+            /* These minting requests actually need to execute serially vs in parallel (as the color mining can)
+                this is due to the glyph growing in size so preemptive parallel tx submission will have bad simulated resource assumptions
+                this probably means we store progress here in the DO and just slowly work through a task list inside the alarm and every time we get a new mint success we move on to the next mint palette
+                once that mint palette queue is empty we can move on to the final mint
+            */
 
             // Queue up the mint jobs
             const mintJobs = sanitizedPaletteArray.map<MintJob>((slice) => ({

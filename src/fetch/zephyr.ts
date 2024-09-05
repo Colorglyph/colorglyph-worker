@@ -2,7 +2,7 @@ import { IRequestStrict, status } from "itty-router"
 import { paletteToBase64 } from "../utils/paletteToBase64";
 import { scValToNative, xdr } from "colorglyph-sdk";
 
-// TODO block access with JWT
+// !! TODO block access with JWT
 // TODO consider using a queue to speed up the requests
 
 export async function zephyr(req: IRequestStrict, env: Env, ctx: ExecutionContext) {
