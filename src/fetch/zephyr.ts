@@ -65,14 +65,16 @@ async function process_glyph(env: Env, body: Glyph | GlyphOwner | GlyphMinter, s
         case Change.Create:
         case Change.Update:
             if (isGlyph(body)) {
-                const feeStatement = env.DB.prepare(`
-                    UPDATE Glyphs
-                    SET Fee = COALESCE(Fee, 0) + ?2
-                    WHERE "Hash" = ?1 AND (Width IS NULL OR Width = 0)
-                `)
-                    .bind(body.hash, fee_charged);
+                // NOTE this fee statement wasn't actually accurate for tracking total glyph cost as there's color mining fees as well 
+                // which aren't really possible to trace back to the glyph those colors will be used in
+                // const feeStatement = env.DB.prepare(`
+                //     UPDATE Glyphs
+                //     SET Fee = COALESCE(Fee, 0) + ?2
+                //     WHERE "Hash" = ?1 AND (Width IS NULL OR Width = 0)
+                // `)
+                //     .bind(body.hash, fee_charged);
 
-                statements.push(feeStatement);
+                // statements.push(feeStatement);
 
                 const scval = xdr.ScVal.fromXDR(body.colors, 'base64');
                 const statement = env.DB.prepare(`
@@ -80,7 +82,7 @@ async function process_glyph(env: Env, body: Glyph | GlyphOwner | GlyphMinter, s
                     VALUES (?1, ?2, ?3)
                     ON CONFLICT("Hash")
                     DO UPDATE SET
-                        Width = CASE WHEN Width IS NULL OR Width <> excluded.Width THEN excluded.Width ELSE Width END,
+                        Width = CASE WHEN Width IS NULL OR excluded.Width > Width THEN excluded.Width ELSE Width END,
                         "Length" = CASE WHEN "Length" IS NULL OR "Length" <> excluded."Length" THEN excluded."Length" ELSE "Length" END
                 `)
                     .bind(
@@ -169,6 +171,7 @@ async function process_offer(env: Env, body: Offer | OfferSellerSelling | OfferS
 
                 statements.push(statement);
             }
+
             else if (isOfferSellerSelling(body)) {
                 const statement = env.DB.prepare(`
                     DELETE FROM Offers WHERE Seller = ?1 AND Selling = ?2
@@ -177,6 +180,7 @@ async function process_offer(env: Env, body: Offer | OfferSellerSelling | OfferS
 
                 statements.push(statement);
             }
+
             else if (isOfferSellingBuyingAmount(body)) {
                 const amount = i128_to_bigint_string(body.amount);
 

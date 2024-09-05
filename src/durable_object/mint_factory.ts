@@ -125,7 +125,14 @@ export class MintFactory {
             const image = await paletteToBase64(body.palette, body.width)
 
             // TODO should we pack the D1 with everything we have? width, owner, minter, etc?
+            // keep in mind folks could mint glyphs outside our system so our interface needs to keep that in mind. Only zephyr data is gospel (aka Length is a strong marker)
             
+            // "Owner" TEXT,
+            // Minter TEXT,
+            // Width INTEGER,
+            // "Length" INTEGER,
+            // Fee INTEGER,
+
             await this.env.IMAGES.put(`png:${hash}`, image)
             await this.env.DB.prepare(`
                 INSERT INTO Glyphs ("Hash", Id)
@@ -194,6 +201,9 @@ export class MintFactory {
             feeCharged: string,
             returnValueXDR: string | undefined
         } = await req.json() as any
+
+        // TODO should we just be inserting the cost into D1 vs waiting till the end?
+        // TODO should we actually insert fee and id into KV vs D1? Keep the D1 for zephyr data
 
         const cost = new BigNumber(await this.storage.get('cost') || 0).plus(feeCharged).toString()
 
@@ -325,6 +335,8 @@ export class MintFactory {
     }
     async mintComplete(body: any) {
         const fee = await this.storage.get('cost')
+
+        console.log('FEE', fee)
 
         await this.env.DB.prepare(`
             UPDATE Glyphs
